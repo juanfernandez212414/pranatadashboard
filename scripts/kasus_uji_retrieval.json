@@ -1,0 +1,195 @@
+{
+  "_petunjuk": [
+    "Satu kasus = satu indikator yang ingin diuji. Dipakai oleh: python local_ingest_v2.py --evaluasi",
+    "indikator  : nama indikator; dipakai untuk menyusun query persis seperti di main.py.",
+    "istilah    : nama lengkap dan singkatan indikator (huruf kecil). Hasil pencarian dianggap BENAR kalau memuat kalimat '<istilah> adalah/merupakan/didefinisikan/menggambarkan ...' yang tidak diikuti nilai (misalnya 'sebesar 11,50').",
+    "kata_kunci : (opsional) kelompok kata yang juga wajib ada di potongan yang sama; cukup salah satu kata di tiap kelompok. Pakai ini kalau istilahnya terlalu umum (misalnya 'inflasi').",
+    "Tambahkan indikator yang sering dipakai di dashboard supaya hasilnya mewakili pemakaian nyata. Makin banyak kasus, makin bisa dipercaya perbandingannya."
+  ],
+  "kasus": [
+    {
+      "indikator": "Tingkat Pengangguran Terbuka",
+      "istilah": [
+        "tingkat pengangguran terbuka",
+        "pengangguran terbuka",
+        "tpt"
+      ]
+    },
+    {
+      "indikator": "Tingkat Partisipasi Angkatan Kerja",
+      "istilah": [
+        "tingkat partisipasi angkatan kerja",
+        "tpak"
+      ]
+    },
+    {
+      "indikator": "Indeks Pembangunan Manusia",
+      "istilah": [
+        "indeks pembangunan manusia",
+        "ipm"
+      ]
+    },
+    {
+      "indikator": "Angka Harapan Hidup",
+      "istilah": [
+        "angka harapan hidup",
+        "harapan hidup",
+        "ahh"
+      ]
+    },
+    {
+      "indikator": "Rata-rata Lama Sekolah",
+      "istilah": [
+        "rata-rata lama sekolah",
+        "rls"
+      ]
+    },
+    {
+      "indikator": "Harapan Lama Sekolah",
+      "istilah": [
+        "harapan lama sekolah",
+        "angka harapan lama sekolah",
+        "hls"
+      ]
+    },
+    {
+      "indikator": "Garis Kemiskinan",
+      "istilah": [
+        "garis kemiskinan",
+        "gk"
+      ]
+    },
+    {
+      "indikator": "Persentase Penduduk Miskin",
+      "istilah": [
+        "penduduk miskin",
+        "persentase penduduk miskin"
+      ],
+      "kata_kunci": [
+        [
+          "di bawah garis kemiskinan",
+          "dibawah garis kemiskinan"
+        ]
+      ]
+    },
+    {
+      "indikator": "Indeks Kedalaman Kemiskinan",
+      "istilah": [
+        "indeks kedalaman kemiskinan",
+        "kedalaman kemiskinan",
+        "p1"
+      ]
+    },
+    {
+      "indikator": "Indeks Keparahan Kemiskinan",
+      "istilah": [
+        "indeks keparahan kemiskinan",
+        "keparahan kemiskinan",
+        "p2"
+      ]
+    },
+    {
+      "indikator": "Inflasi",
+      "istilah": [
+        "inflasi"
+      ],
+      "kata_kunci": [
+        [
+          "kenaikan harga",
+          "naiknya harga",
+          "harga barang dan jasa"
+        ]
+      ]
+    },
+    {
+      "indikator": "Indeks Harga Konsumen",
+      "istilah": [
+        "indeks harga konsumen",
+        "ihk"
+      ],
+      "kata_kunci": [
+        [
+          "perubahan harga",
+          "perkembangan harga",
+          "harga barang dan jasa"
+        ]
+      ]
+    },
+    {
+      "indikator": "Produk Domestik Regional Bruto",
+      "istilah": [
+        "produk domestik regional bruto",
+        "pdrb"
+      ],
+      "kata_kunci": [
+        [
+          "nilai tambah"
+        ]
+      ]
+    },
+    {
+      "indikator": "Laju Pertumbuhan Ekonomi",
+      "istilah": [
+        "laju pertumbuhan ekonomi",
+        "pertumbuhan ekonomi"
+      ]
+    },
+    {
+      "indikator": "Rasio Jenis Kelamin",
+      "istilah": [
+        "rasio jenis kelamin",
+        "sex ratio"
+      ]
+    },
+    {
+      "indikator": "Kepadatan Penduduk",
+      "istilah": [
+        "kepadatan penduduk"
+      ]
+    },
+    {
+      "indikator": "Laju Pertumbuhan Penduduk",
+      "istilah": [
+        "laju pertumbuhan penduduk",
+        "pertumbuhan penduduk"
+      ]
+    },
+    {
+      "indikator": "Tingkat Penghunian Kamar Hotel",
+      "istilah": [
+        "tingkat penghunian kamar",
+        "tpk"
+      ]
+    },
+    {
+      "indikator": "Rasio Gini",
+      "istilah": [
+        "rasio gini",
+        "indeks gini",
+        "gini ratio",
+        "koefisien gini"
+      ]
+    },
+    {
+      "indikator": "Angka Partisipasi Sekolah",
+      "istilah": [
+        "angka partisipasi sekolah",
+        "aps"
+      ]
+    },
+    {
+      "indikator": "Angka Partisipasi Kasar",
+      "istilah": [
+        "angka partisipasi kasar",
+        "apk"
+      ]
+    },
+    {
+      "indikator": "Angka Partisipasi Murni",
+      "istilah": [
+        "angka partisipasi murni",
+        "apm"
+      ]
+    }
+  ]
+}

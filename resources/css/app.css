@@ -1,0 +1,99 @@
+/* Import Fonts dari Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Manrope:wght@600;700&family=Instrument+Sans:wght@400;600;700&display=swap');
+@import './adminstyle.css';
+@import 'tailwindcss';
+
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../storage/framework/views/*.php';
+@source '../**/*.blade.php';
+@source '../**/*.js';
+
+@theme {
+    --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+        'Segoe UI Symbol', 'Noto Color Emoji';
+    --font-inter: 'Inter', ui-sans-serif, system-ui, sans-serif;
+    --font-manrope: 'Manrope', ui-sans-serif, system-ui, sans-serif;
+    --font-instrument: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif;
+
+    /* Warna kustom BPS */
+    --color-bps-blue: #002D72;
+    --color-bps-red: #FE5C73;
+}
+
+.spreadsheet-table input {
+    @apply w-full h-10 px-3 py-2 border-none rounded-none text-sm focus:outline-none focus:ring-2 focus:ring-[#002D72] focus:z-10 relative;
+}
+
+.spreadsheet-table th {
+    @apply text-left p-0 text-xs font-semibold text-gray-500 uppercase bg-gray-50 border-b border-gray-200;
+}
+
+.spreadsheet-table th input {
+    @apply bg-gray-50 font-semibold text-gray-800 text-xs p-3 uppercase;
+}
+
+.spreadsheet-table td {
+    @apply p-0 align-middle border-b border-gray-200;
+}
+
+.spreadsheet-table tr:last-child td {
+    @apply border-b-0;
+}
+
+/* Animasi Leaflet Peta */
+.map-polygon-transition {
+    transition: fill-opacity 0.3s ease, fill 0.3s ease, stroke-width 0.3s ease, stroke 0.3s ease;
+}
+
+/* Glow effect for entire city outer boundary */
+.city-glow-active .leaflet-overlay-pane svg {
+    filter: drop-shadow(2px 0 0 #fbbf24) 
+            drop-shadow(-2px 0 0 #fbbf24) 
+            drop-shadow(0 2px 0 #fbbf24) 
+            drop-shadow(0 -2px 0 #fbbf24);
+}
+
+.leaflet-container {
+    background: transparent !important;
+}
+
+/* Tooltip Kustom Peta */
+.premium-map-tooltip {
+    background: white;
+    border: none;
+    border-radius: 8px;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+    padding: 12px;
+    opacity: 1 !important;
+    transition: none !important;
+}
+
+.leaflet-tooltip-fade {
+    transition: none !important;
+}
+
+.premium-map-tooltip::before {
+    border-top-color: white !important;
+}
+
+/* Custom Premium Scrollbar Global (Tema BPS) */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+::-webkit-scrollbar-thumb {
+    background-color: #002D72;
+    border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background-color: #004B9C;
+}
+
+/* Firefox */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: #002D72 transparent;
+}

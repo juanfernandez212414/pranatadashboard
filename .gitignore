@@ -1,0 +1,49 @@
+# --- Kredensial & Rahasia ---
+.env
+.env.backup
+.env.production
+/auth.json
+/storage/*.key
+
+# --- Folder bawaan Laravel / Node.js ---
+/vendor
+/node_modules
+/public/build
+/public/hot
+/public/storage
+/storage/pail
+
+# --- Log & Testing ---
+*.log
+.phpunit.result.cache
+/.phpunit.cache
+
+# --- IDE & Tools ---
+/.fleet
+/.idea
+/.nova
+/.vscode
+/.zed
+.phpactor.json
+Homestead.json
+Homestead.yaml
+
+# --- File Sistem & Google Drive ---
+.DS_Store
+Thumbs.db
+.tmp.driveupload/
+
+# --- File Proyek Pranata (Database, Model & Dokumen) ---
+pranata.sql
+pranata.dump
+scripts/.cache_models/
+*.txt
+*.docx
+
+# --- Python / FastAPI / Scraper (SANGAT PENTING) ---
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+env/
+.venv/

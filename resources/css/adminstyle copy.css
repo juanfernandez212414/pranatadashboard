@@ -1,0 +1,9 @@
+/* resources/css/adminstyle.css */
+
+[x-cloak] {
+    display: none !important;
+}
+
+.overflow-x-auto {
+    -webkit-overflow-scrolling: touch;
+}
