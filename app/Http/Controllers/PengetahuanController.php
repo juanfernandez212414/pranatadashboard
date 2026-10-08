@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Services\Bps\PublikasiBps;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 
@@ -326,6 +327,9 @@ class PengetahuanController extends Controller
                 unlink($pdfPath);
             }
 
+            // 4. Publikasi BPS yang dihapus tidak dilatihkan lagi otomatis (jadwal malam / tombol massal)
+            $this->abaikanPublikasi([$filename]);
+
             return back()->with('success', "✅ Berhasil menghapus pengetahuan dan file fisik \"{$filename}\" secara permanen.");
         } catch (\Exception $e) {
             return back()->with('error', 'Terjadi kesalahan komunikasi dengan server AI: ' . $e->getMessage());
@@ -348,6 +352,12 @@ class PengetahuanController extends Controller
                 ->delete($apiUrl . '/delete-all');
 
             if ($response->successful()) {
+                // Nama dokumen yang dihapus, dicatat di langkah 4
+                $dihapus = file_exists($logPath) ? file($logPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) : [];
+                if (file_exists($storagePath)) {
+                    $dihapus = array_merge($dihapus, array_diff(scandir($storagePath), array('.', '..')));
+                }
+
                 // 2. Hapus log lokal
                 if (file_exists($logPath)) {
                     unlink($logPath);
@@ -364,12 +374,26 @@ class PengetahuanController extends Controller
                     }
                 }
 
+                // 4. Publikasi BPS yang dihapus tidak dilatihkan lagi otomatis (jadwal malam / tombol massal)
+                $this->abaikanPublikasi(array_map('trim', $dihapus));
+
                 return back()->with('success', "✅ Kilat! Berhasil menghapus seluruh data pengetahuan dari AI dan semua file PDF fisik.");
             } else {
                 return back()->with('error', 'Gagal memicu penghapusan kilat di server AI.');
             }
         } catch (\Exception $e) {
             return back()->with('error', 'Terjadi kesalahan saat menghapus data: ' . $e->getMessage());
+        }
+    }
+
+    // Mencatat dokumen yang dihapus agar publikasi BPS-nya tidak dilatihkan lagi otomatis. Kegagalan mencatat
+    // (mis. migrasi belum dijalankan) tidak membatalkan penghapusan yang sudah terjadi.
+    private function abaikanPublikasi(array $namaDokumen): void
+    {
+        try {
+            PublikasiBps::abaikan($namaDokumen);
+        } catch (\Throwable $e) {
+            report($e);
         }
     }
 }

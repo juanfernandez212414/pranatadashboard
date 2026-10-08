@@ -135,6 +135,15 @@ server AI sedang "bangun", ulangi nanti atau pakai perintah terminal.
 Status "sudah dilatih" dicatat di `storage/app/processed_log_bge_m3.txt` (log yang sama dengan Ingest manual),
 jadi publikasi yang dilatih lewat link tidak dikirim dua kali walaupun PDF-nya tidak ada di folder.
 
+- **Satu publikasi gagal tidak menghentikan proses massal.** Bila hanya publikasi itu yang bermasalah
+  (PDF sangat besar sehingga batas waktu habis, atau ditolak karena melebihi 100 MB), publikasi berikutnya
+  tetap diproses. Proses berhenti hanya bila layanan AI tidak bisa dipakai sama sekali.
+- **Dokumen yang dihapus di Manajemen Pengetahuan** (hapus satu maupun Hapus Semua) **tidak dilatihkan lagi
+  secara otomatis**. Di tab Publikasi tandanya "Pernah dihapus dari basis pengetahuan"; klik **Latih AI** bila
+  ingin memakainya lagi, atau **Izinkan dilatih otomatis lagi** untuk semuanya. Fitur ini butuh
+  `php artisan migrate` (tabel `bps_publikasi_diabaikan`).
+- Unduhan PDF, baik oleh Laravel maupun server AI, hanya mengikuti pengalihan (redirect) ke alamat https `*.bps.go.id`.
+
 ## 7. Narasi AI (RAG)
 
 Endpoint narasi di layanan Hugging Face (`scripts/Hugging Face/main.py`) tidak berubah. Laravel mengirim data

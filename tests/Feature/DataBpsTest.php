@@ -16,7 +16,9 @@ use App\Models\User;
 use App\Services\Bps\BpsApiClient;
 use App\Services\Bps\BpsApiException;
 use App\Services\Bps\KonverterTabelBps;
+use App\Services\Bps\PublikasiBps;
 use Illuminate\Http\Client\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Sleep;
@@ -503,6 +505,125 @@ it('meminta browser berhenti bila layanan AI tidak bisa dipakai saat melatih pub
     expect(file_exists($this->storage . '/app/processed_log_bge_m3.txt'))->toBeFalse();
 });
 
+it('melanjutkan ke publikasi berikutnya bila hanya publikasi ini yang gagal dilatihkan', function (\Closure $balasanAi, string $pesan) {
+    config(['services.huggingface.url' => 'https://ai-uji.test']);
+    palsukanBps(['ai-uji.test' => $balasanAi]);
+
+    $this->actingAs($this->admin)->postJson('/admin/data-bps/publikasi-otomatis/d16eaeb2fff0805a540b5047')
+        ->assertStatus(502)
+        ->assertJsonPath('berhenti', false)
+        ->assertJsonPath('galat', fn ($g) => str_contains($g, $pesan));
+
+    // Belum tercatat dilatih (dicek ulang pada proses berikutnya) dan tidak beralih ke cara cadangan.
+    expect(file_exists($this->storage . '/app/processed_log_bge_m3.txt'))->toBeFalse()
+        ->and(glob($this->folderPdf . '/*'))->toBe([]);
+    Http::assertNotSent(fn (Request $r) => str_contains($r->url(), 'download.php') || str_contains($r->url(), 'upload-ingest'));
+})->with([
+    'batas waktu habis (PDF besar)' => [fn () => Http::failedConnection('cURL error 28: Operation timed out after 40001 milliseconds'), 'Server AI belum selesai mengambil PDF dari BPS dalam'],
+    'PDF terlalu besar (413)' => [fn () => Http::response(['detail' => 'PDF melebihi batas 100 MB.'], 413), 'Layanan AI menolak publikasi ini: PDF melebihi batas 100 MB.'],
+]);
+
+it('php artisan bps:publikasi tetap memproses publikasi berikutnya bila satu publikasi melewati batas waktu', function () {
+    config(['services.huggingface.url' => 'https://ai-uji.test']);
+    $martoba = fixtureBps('publikasi_detail.json');
+    $martoba['data'] = ['pub_id' => '9b58feb2f32b167766d36655', 'title' => 'Kecamatan Siantar Martoba Dalam Angka 2026'] + $martoba['data'];
+    palsukanBps([
+        'ai-uji.test' => fn (Request $r) => str_contains((string) $r['filename'], 'Barat')
+            ? Http::failedConnection('cURL error 28: Operation timed out after 300000 milliseconds')
+            : Http::response(['status' => 'started']),
+        'id=9b58feb2f32b167766d36655' => fn () => Http::response($martoba),
+    ]);
+
+    $this->artisan('bps:publikasi', ['--sejak' => now()->year])
+        ->expectsOutputToContain('1 publikasi dilatihkan ke AI, 1 gagal.')
+        ->assertFailed();
+    expect(file($this->storage . '/app/processed_log_bge_m3.txt', FILE_IGNORE_NEW_LINES))->toBe(['Kecamatan_Siantar_Martoba_Dalam_Angka_2026.pdf']);
+});
+
+it('langsung memakai cara cadangan untuk publikasi berikutnya setelah server AI tidak bisa memakai link', function () {
+    config(['services.huggingface.url' => 'https://ai-uji.test']);
+    $martoba = fixtureBps('publikasi_detail.json');
+    $martoba['data'] = ['pub_id' => '9b58feb2f32b167766d36655', 'title' => 'Kecamatan Siantar Martoba Dalam Angka 2026'] + $martoba['data'];
+    palsukanBps([
+        'ai-uji.test/ingest-url' => fn () => Http::response(['detail' => 'Not Found'], 404),
+        'ai-uji.test/upload-ingest' => fn () => Http::response(['status' => 'started']),
+        'id=9b58feb2f32b167766d36655' => fn () => Http::response($martoba),
+    ]);
+
+    $this->artisan('bps:publikasi', ['--sejak' => now()->year])
+        ->expectsOutputToContain('2 publikasi dilatihkan ke AI, 0 gagal.')
+        ->assertSuccessful();
+    expect(Http::recorded(fn (Request $r) => str_contains($r->url(), '/ingest-url')))->toHaveCount(1)
+        ->and(Http::recorded(fn (Request $r) => str_contains($r->url(), '/upload-ingest')))->toHaveCount(2);
+});
+
+it('tidak melatihkan lagi secara otomatis publikasi yang dihapus di Manajemen Pengetahuan', function () {
+    config(['services.huggingface.url' => 'https://ai-uji.test']);
+    $martoba = fixtureBps('publikasi_detail.json');
+    $martoba['data'] = ['pub_id' => '9b58feb2f32b167766d36655', 'title' => 'Kecamatan Siantar Martoba Dalam Angka 2026'] + $martoba['data'];
+    palsukanBps([
+        'delete-by-file' => fn () => Http::response(['status' => 'deleted']),
+        'ai-uji.test' => fn () => Http::response(['status' => 'started']),
+        'id=9b58feb2f32b167766d36655' => fn () => Http::response($martoba),
+    ]);
+    $this->artisan('bps:publikasi', ['--sejak' => now()->year])->assertSuccessful();
+
+    $this->actingAs($this->admin)->delete('/admin/pengetahuan/delete-by-file', ['filename' => 'Kecamatan_Siantar_Barat_Dalam_Angka_2026.pdf'])
+        ->assertSessionHas('success');
+    expect(file($this->storage . '/app/processed_log_bge_m3.txt', FILE_IGNORE_NEW_LINES))->toBe(['Kecamatan_Siantar_Martoba_Dalam_Angka_2026.pdf']);
+
+    // Jadwal malam dan tombol massal melewatinya.
+    $this->artisan('bps:publikasi', ['--sejak' => now()->year])
+        ->expectsOutputToContain('1 publikasi dilewati karena pernah dihapus dari basis pengetahuan')
+        ->expectsOutputToContain('Semua publikasi sudah ada di basis pengetahuan AI.')
+        ->assertSuccessful();
+    $this->actingAs($this->admin)->postJson('/admin/data-bps/publikasi-otomatis', ['sejak' => now()->year])
+        ->assertOk()->assertJsonPath('publikasi', [])->assertJsonPath('diabaikan', 1);
+    expect(Http::recorded(fn (Request $r) => str_contains($r->url(), '/ingest-url')))->toHaveCount(2); // hanya proses pertama
+    $this->actingAs($this->admin)->get('/admin/data-bps?tab=publikasi')
+        ->assertSee('Pernah dihapus dari basis pengetahuan')
+        ->assertSee('1 dokumen yang pernah dihapus di Manajemen Pengetahuan tidak dilatihkan otomatis.');
+
+    // Tombol "Latih AI" per publikasi tetap bisa melatihnya, lalu publikasi itu ikut proses otomatis lagi.
+    $this->actingAs($this->admin)->post('/admin/data-bps/publikasi/d16eaeb2fff0805a540b5047')
+        ->assertSessionHas('success', fn ($p) => str_contains($p, 'sedang dilatihkan'));
+    expect(DB::table('bps_publikasi_diabaikan')->count())->toBe(0);
+});
+
+it('Hapus Semua di Manajemen Pengetahuan juga tidak dibatalkan oleh proses otomatis, kecuali diizinkan lagi', function () {
+    config(['services.huggingface.url' => 'https://ai-uji.test']);
+    palsukanBps([
+        'delete-all' => fn () => Http::response(['status' => 'deleted']),
+        'ai-uji.test' => fn () => Http::response(['status' => 'started']),
+    ]);
+    file_put_contents($this->folderPdf . '/Kecamatan_Siantar_Martoba_Dalam_Angka_2026.pdf', '%PDF-1.4');
+    file_put_contents($this->storage . '/app/processed_log_bge_m3.txt', 'Kecamatan_Siantar_Barat_Dalam_Angka_2026.pdf' . PHP_EOL);
+
+    $this->actingAs($this->pj)->delete('/penanggungjawab/pengetahuan/delete-all')->assertSessionHas('success');
+    expect(DB::table('bps_publikasi_diabaikan')->orderBy('kunci')->pluck('nama')->all())
+        ->toBe(['Kecamatan_Siantar_Barat_Dalam_Angka_2026.pdf', 'Kecamatan_Siantar_Martoba_Dalam_Angka_2026.pdf']);
+    $this->actingAs($this->admin)->postJson('/admin/data-bps/publikasi-otomatis', ['sejak' => now()->year])
+        ->assertOk()->assertJsonPath('diabaikan', 2)->assertJsonPath('publikasi', []);
+
+    $this->actingAs($this->biasa)->post('/admin/data-bps/publikasi-diabaikan/izinkan')->assertForbidden();
+    $this->actingAs($this->pj)->post('/penanggungjawab/data-bps/publikasi-diabaikan/izinkan')
+        ->assertRedirect('/penanggungjawab/data-bps?tab=publikasi')
+        ->assertSessionHas('success', '2 publikasi yang pernah dihapus dari basis pengetahuan akan dilatihkan otomatis lagi.');
+    $this->actingAs($this->admin)->postJson('/admin/data-bps/publikasi-otomatis', ['sejak' => now()->year])
+        ->assertOk()->assertJsonPath('diabaikan', 0)->assertJsonCount(2, 'publikasi');
+});
+
+it('mencocokkan judul publikasi yang sangat panjang dengan PDF yang namanya terpotong', function () {
+    $panjang = 'Hasil Pencacahan Lengkap Sensus Pertanian 2023 Tahap II Usaha Pertanian Perorangan Tanaman Perkebunan Hortikultura dan Peternakan Kota Pematangsiantar Tahun 2026';
+    $berkas = PublikasiBps::namaBerkas($panjang);
+    expect(strlen($berkas))->toBe(154);
+    file_put_contents($this->folderPdf . '/' . $berkas, '%PDF-1.4');
+    file_put_contents($this->storage . '/app/processed_log_bge_m3.txt', $berkas . PHP_EOL);
+
+    expect(PublikasiBps::pdfTersimpan()[PublikasiBps::kunciJudul($panjang)] ?? null)->toBe($berkas)
+        ->and(isset(PublikasiBps::kunciDilatih()[PublikasiBps::kunciJudul($panjang)]))->toBeTrue();
+});
+
 it('melatih publikasi baru lewat php artisan bps:publikasi', function () {
     config(['services.huggingface.url' => 'https://ai-uji.test']);
     $martoba = fixtureBps('publikasi_detail.json');
@@ -563,4 +684,19 @@ it('hanya mengunduh PDF dari server BPS', function () {
         ->assertSessionHas('error', 'Alamat unduhan PDF bukan dari server BPS.');
 
     Http::assertNotSent(fn (Request $r) => str_contains($r->url(), 'contoh-bukan-bps.test') || str_contains($r->url(), 'ingest'));
+});
+
+it('tidak mengikuti pengalihan unduhan PDF ke alamat di luar server BPS', function () {
+    config(['services.huggingface.url' => 'https://ai-uji.test']);
+    palsukanBps([
+        'ai-uji.test/ingest-url' => fn () => Http::response(['detail' => 'Not Found'], 404), // paksa cara cadangan
+        'download.php' => fn () => Http::response('', 302, ['Location' => 'http://127.0.0.1:9/rahasia.pdf']),
+        '127.0.0.1' => fn () => Http::response('%PDF-1.4 dari host lain', 200),
+    ]);
+
+    $this->actingAs($this->admin)->post('/admin/data-bps/publikasi/d16eaeb2fff0805a540b5047')
+        ->assertSessionHas('error', 'Unduhan PDF dialihkan ke alamat di luar server BPS.');
+
+    expect(glob($this->folderPdf . '/*'))->toBe([]);
+    Http::assertNotSent(fn (Request $r) => str_contains($r->url(), '127.0.0.1') || str_contains($r->url(), 'upload-ingest'));
 });

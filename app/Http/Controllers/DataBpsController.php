@@ -72,10 +72,13 @@ class DataBpsController extends Controller
                 $publikasi = $this->bps->denganBatasHalaman(fn () => $this->bps->daftarPublikasi(max(1, (int) $request->query('page', 1)), $kataKunci));
                 $tersimpan = PublikasiBps::pdfTersimpan();
                 $dilatih = PublikasiBps::kunciDilatih();
+                $diabaikan = PublikasiBps::kunciDiabaikan();
                 foreach ($publikasi['item'] as &$pub) {
                     $pub['title'] = KonverterTabelBps::bersihkanTeks($pub['title'] ?? '', buangTerjemahan: false);
-                    $pub['tersimpan'] = $tersimpan[PublikasiBps::kunciNama($pub['title'])] ?? null;
-                    $pub['dilatih'] = isset($dilatih[PublikasiBps::kunciNama($pub['title'])]);
+                    $kunci = PublikasiBps::kunciJudul($pub['title']);
+                    $pub['tersimpan'] = $tersimpan[$kunci] ?? null;
+                    $pub['dilatih'] = isset($dilatih[$kunci]);
+                    $pub['diabaikan'] = isset($diabaikan[$kunci]);
                     $pub['pdf'] = self::urlAman($pub['pdf'] ?? null);
                     $pub['cover'] = self::urlAman($pub['cover'] ?? null);
                 }
@@ -94,7 +97,8 @@ class DataBpsController extends Controller
             'galat' => $galat,
             'domain' => $this->bps->domain(),
             'otomatis' => $this->ringkasanOtomatis($tab === 'dinamis' && $galat === null),
-            'publikasiOtomatis' => ['sejak' => PublikasiBps::sejakBawaan(), 'kata' => PublikasiBps::kataBawaan(), 'aiSiap' => BasisPengetahuan::urlAi() !== null],
+            'publikasiOtomatis' => ['sejak' => PublikasiBps::sejakBawaan(), 'kata' => PublikasiBps::kataBawaan(), 'aiSiap' => BasisPengetahuan::urlAi() !== null,
+                'diabaikan' => count(PublikasiBps::kunciDiabaikan())],
         ]);
     }
 
@@ -406,8 +410,20 @@ class DataBpsController extends Controller
 
         return response()->json([
             'jumlah' => count($kandidat),
-            'publikasi' => array_values(array_filter($kandidat, fn ($p) => !$p['dilatih'])),
+            // Yang pernah dihapus dari basis pengetahuan tidak dilatihkan otomatis.
+            'publikasi' => array_values(array_filter($kandidat, fn ($p) => !$p['dilatih'] && !$p['diabaikan'])),
+            'diabaikan' => count(array_filter($kandidat, fn ($p) => !$p['dilatih'] && $p['diabaikan'])),
         ]);
+    }
+
+    // Publikasi yang pernah dihapus dari basis pengetahuan boleh dilatihkan otomatis lagi.
+    public function izinkanPublikasi()
+    {
+        $this->cekAkses();
+        $jumlah = PublikasiBps::izinkanSemua();
+
+        return redirect()->route($this->area()['rute'] . 'databps', ['tab' => 'publikasi'])
+            ->with('success', "{$jumlah} publikasi yang pernah dihapus dari basis pengetahuan akan dilatihkan otomatis lagi.");
     }
 
     // Langkah 2: satu publikasi diunduh dari API (bila belum ada) lalu dikirim ke layanan AI.
@@ -426,8 +442,9 @@ class DataBpsController extends Controller
         }
 
         return $hasil['galatLatih']
-            // Layanan AI mati/belum diatur: publikasi berikutnya pasti gagal dilatihkan juga.
-            ? response()->json(['galat' => self::pesanPublikasi($hasil), 'berhenti' => true], 502)
+            // Berhenti bila layanan AI mati/belum diatur (publikasi berikutnya pasti gagal juga); bila hanya
+            // publikasi ini yang gagal (mis. batas waktu habis karena PDF besar), lanjut ke publikasi berikutnya.
+            ? response()->json(['galat' => self::pesanPublikasi($hasil), 'berhenti' => !$hasil['lanjut']], 502)
             : response()->json(['pesan' => self::pesanPublikasi($hasil)]);
     }
 

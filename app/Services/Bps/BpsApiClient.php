@@ -369,17 +369,17 @@ class BpsApiClient
         return $json['data'] ?? null;
     }
 
-    /**
-     * Unduh PDF dari server BPS ke $tujuan. Hanya menerima alamat *.bps.go.id dan isi berkas yang
-     * benar-benar PDF. Berkas ditulis ke "$tujuan.part" dulu, jadi unduhan gagal tidak meninggalkan
-     * PDF rusak di folder tujuan.
-     */
     /** Hanya alamat https di server BPS (*.bps.go.id) yang boleh diunduh, di sini maupun oleh server AI. */
     public static function alamatBps(string $url): bool
     {
         return parse_url($url, PHP_URL_SCHEME) === 'https' && preg_match('/(^|\.)bps\.go\.id$/i', (string) parse_url($url, PHP_URL_HOST)) === 1;
     }
 
+    /**
+     * Unduh PDF dari server BPS ke $tujuan. Hanya menerima alamat *.bps.go.id (termasuk setiap pengalihan/
+     * redirect) dan isi berkas yang benar-benar PDF. Berkas ditulis ke "$tujuan.part" dulu, jadi unduhan
+     * gagal tidak meninggalkan PDF rusak di folder tujuan.
+     */
     public function unduhPdf(string $url, string $tujuan, int $maksByte, int $batasDetik = 240): void
     {
         if (!self::alamatBps($url)) {
@@ -387,15 +387,23 @@ class BpsApiClient
         }
 
         $sementara = $tujuan . '.part';
+        $pengalihan = ['max' => 5, 'on_redirect' => function ($permintaan, $respons, $tujuanBaru) {
+            if (!self::alamatBps((string) $tujuanBaru)) {
+                throw new BpsApiException('Unduhan PDF dialihkan ke alamat di luar server BPS.');
+            }
+        }];
 
         try {
             $respons = Http::withUserAgent('PRANATA/1.0 (BPS Kota Pematangsiantar)')
                 ->timeout($batasDetik)
-                ->withOptions(['sink' => $sementara])
+                ->withOptions(['sink' => $sementara, 'allow_redirects' => $pengalihan])
                 ->get($url);
         } catch (ConnectionException $e) {
             @unlink($sementara);
             throw new BpsApiException('Gagal mengunduh PDF: server BPS tidak dapat dihubungi.');
+        } catch (BpsApiException $e) {
+            @unlink($sementara);
+            throw $e;
         }
 
         $gagal = match (true) {

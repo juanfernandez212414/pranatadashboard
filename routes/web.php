@@ -114,6 +114,7 @@ Route::middleware(['auth', 'area.role'])->group(function () {
     Route::post('/admin/data-bps/publikasi/{id}', [DataBpsController::class, 'simpanPublikasi'])->name('admin.databps.publikasi.simpan');
     Route::post('/admin/data-bps/publikasi-otomatis', [DataBpsController::class, 'publikasiOtomatisMulai'])->name('admin.databps.publikasi.otomatis');
     Route::post('/admin/data-bps/publikasi-otomatis/{id}', [DataBpsController::class, 'publikasiOtomatisSatu'])->name('admin.databps.publikasi.otomatis.satu');
+    Route::post('/admin/data-bps/publikasi-diabaikan/izinkan', [DataBpsController::class, 'izinkanPublikasi'])->name('admin.databps.publikasi.izinkan');
     Route::post('/admin/data-bps/impor-semua', [DataBpsController::class, 'imporSemuaMulai'])->name('admin.databps.imporsemua');
     Route::post('/admin/data-bps/impor-semua/{indicator}', [DataBpsController::class, 'imporSemuaSatu'])->whereNumber('indicator')->name('admin.databps.imporsemua.satu');
     Route::post('/admin/data-bps/tabel-diabaikan/{var}/pulihkan', [DataBpsController::class, 'pulihkanTabel'])->whereNumber('var')->name('admin.databps.diabaikan.pulihkan');
@@ -188,6 +189,7 @@ Route::middleware(['auth', 'area.role'])->group(function () {
         Route::post('/data-bps/publikasi/{id}', [DataBpsController::class, 'simpanPublikasi'])->name('databps.publikasi.simpan');
         Route::post('/data-bps/publikasi-otomatis', [DataBpsController::class, 'publikasiOtomatisMulai'])->name('databps.publikasi.otomatis');
         Route::post('/data-bps/publikasi-otomatis/{id}', [DataBpsController::class, 'publikasiOtomatisSatu'])->name('databps.publikasi.otomatis.satu');
+        Route::post('/data-bps/publikasi-diabaikan/izinkan', [DataBpsController::class, 'izinkanPublikasi'])->name('databps.publikasi.izinkan');
         Route::post('/data-bps/impor-semua', [DataBpsController::class, 'imporSemuaMulai'])->name('databps.imporsemua');
         Route::post('/data-bps/impor-semua/{indicator}', [DataBpsController::class, 'imporSemuaSatu'])->whereNumber('indicator')->name('databps.imporsemua.satu');
         Route::post('/data-bps/tabel-diabaikan/{var}/pulihkan', [DataBpsController::class, 'pulihkanTabel'])->whereNumber('var')->name('databps.diabaikan.pulihkan');

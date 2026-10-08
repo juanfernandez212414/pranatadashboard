@@ -418,7 +418,7 @@ def task_ingest_dari_url(file_records: List[Dict[str, str]]):
 def ingest_url(req: IngestUrlRequest, background_tasks: BackgroundTasks):
     """Mengunduh PDF publikasi langsung dari server BPS (tanpa disimpan dulu di server Laravel), lalu menjadwalkan ingest di latar belakang."""
     import requests
-    from urllib.parse import urlparse
+    from urllib.parse import urljoin, urlparse
     from fastapi import HTTPException
 
     alamat = urlparse(req.url.strip())
@@ -436,8 +436,21 @@ def ingest_url(req: IngestUrlRequest, background_tasks: BackgroundTasks):
     fd, tmp_path = tempfile.mkstemp(suffix=".pdf")
     try:
         with os.fdopen(fd, "wb") as berkas:
-            with requests.get(req.url.strip(), stream=True, timeout=(15, 120), allow_redirects=False,
-                              headers={"User-Agent": "PRANATA/1.0 (BPS Kota Pematangsiantar)"}) as respons:
+            # Pengalihan (redirect) diikuti manual, paling banyak 5 kali, dan setiap alamatnya harus https *.bps.go.id.
+            alamat_unduh = req.url.strip()
+            for _ in range(6):
+                respons = requests.get(alamat_unduh, stream=True, timeout=(15, 120), allow_redirects=False,
+                                       headers={"User-Agent": "PRANATA/1.0 (BPS Kota Pematangsiantar)"})
+                if respons.status_code not in (301, 302, 303, 307, 308):
+                    break
+                respons.close()
+                alamat_unduh = urljoin(alamat_unduh, respons.headers.get("Location", ""))
+                tujuan = urlparse(alamat_unduh)
+                if tujuan.scheme != "https" or not _HOST_BPS_RE.search(tujuan.hostname or ""):
+                    raise HTTPException(status_code=422, detail="Unduhan PDF dialihkan ke alamat di luar server BPS.")
+            else:
+                raise HTTPException(status_code=502, detail="Server BPS terlalu banyak mengalihkan unduhan PDF.")
+            with respons:
                 if respons.status_code != 200:
                     raise HTTPException(status_code=502, detail=f"Server BPS menolak unduhan dari server AI (HTTP {respons.status_code}).")
                 ukuran = 0

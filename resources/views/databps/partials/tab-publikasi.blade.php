@@ -21,6 +21,13 @@
         @unless ($publikasiOtomatis['aiSiap'])
             <p class="text-sm text-orange-700 mt-1">Alamat layanan AI (HUGGINGFACE_API_URL) belum diisi di .env, jadi PDF hanya bisa diunduh.</p>
         @endunless
+        @if ($publikasiOtomatis['diabaikan'] > 0)
+            <form method="POST" action="{{ route($rute . 'databps.publikasi.izinkan') }}" class="text-sm text-gray-600 mt-1">
+                @csrf
+                {{ $publikasiOtomatis['diabaikan'] }} dokumen yang pernah dihapus di Manajemen Pengetahuan tidak dilatihkan otomatis.
+                <button type="submit" class="text-[#002D72] font-medium underline">Izinkan dilatih otomatis lagi</button>
+            </form>
+        @endif
     </div>
     <div class="flex flex-col sm:flex-row sm:items-end gap-3">
         <div>
@@ -116,7 +123,10 @@
                             <span class="px-3 py-1.5 rounded-lg text-xs font-medium bg-green-100 text-green-800"
                                 title="{{ $pub['tersimpan'] ?? '' }}">Sudah ada di basis pengetahuan AI</span>
                         @elseif ($pub['tersimpan'] || !empty($pub['pdf']))
-                            @if ($pub['tersimpan'])
+                            @if ($pub['diabaikan'])
+                                <span class="px-3 py-1.5 rounded-lg text-xs font-medium bg-gray-100 text-gray-700"
+                                    title="Tidak dilatihkan otomatis. Klik Latih AI untuk memakainya lagi.">Pernah dihapus dari basis pengetahuan</span>
+                            @elseif ($pub['tersimpan'])
                                 <span class="px-3 py-1.5 rounded-lg text-xs font-medium bg-blue-100 text-blue-800"
                                     title="{{ $pub['tersimpan'] }}">PDF tersimpan, belum dilatih</span>
                             @endif
@@ -190,7 +200,10 @@
                     try {
                         const awal = await kirim(konfig.mulai, { sejak: this.sejak, kata: this.kata });
                         this.total = awal.publikasi.length;
-                        if (this.total === 0) {
+                        if (awal.diabaikan > 0) {
+                            this.log.push({ galat: false, teks: `${awal.diabaikan} publikasi dilewati karena pernah dihapus dari basis pengetahuan (latih lagi lewat tombol "Latih AI" di daftar).` });
+                        }
+                        if (this.total === 0 && !awal.diabaikan) {
                             this.log.push({ galat: false, teks: `Semua ${awal.jumlah} publikasi yang cocok sudah ada di basis pengetahuan AI.` });
                         }
                         for (const p of awal.publikasi) {
@@ -200,6 +213,7 @@
                                 this.log.unshift({ galat: false, teks: (await kirim(konfig.satu.replace('__ID__', encodeURIComponent(p.id)))).pesan });
                                 this.berhasil++;
                             } catch (e) {
+                                // Galat yang hanya mengenai publikasi ini (mis. PDF besar) dilewati; berhenti bila AI/API tidak bisa dipakai.
                                 this.log.unshift({ galat: true, teks: e.message });
                                 if (e.berhenti) { this.log.unshift({ galat: true, teks: 'Dihentikan karena kesalahan di atas. Coba lagi nanti.' }); break; }
                             }

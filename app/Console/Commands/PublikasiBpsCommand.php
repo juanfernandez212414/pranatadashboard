@@ -50,13 +50,22 @@ class PublikasiBpsCommand extends Command
         if ($this->option('daftar')) {
             $this->table(['ID', 'Judul', 'Rilis', 'Status'], array_map(fn ($p) => [
                 $p['id'], mb_strimwidth($p['judul'], 0, 70, '…'), $p['rilis'],
-                $p['dilatih'] ? 'sudah dilatih' : ($p['berkas'] ? 'PDF tersimpan, belum dilatih' : 'belum dilatih'),
+                match (true) {
+                    $p['dilatih'] => 'sudah dilatih',
+                    $p['diabaikan'] => 'pernah dihapus, tidak dilatih otomatis',
+                    (bool) $p['berkas'] => 'PDF tersimpan, belum dilatih',
+                    default => 'belum dilatih',
+                },
             ], $kandidat));
 
             return self::SUCCESS;
         }
 
-        $antrian = array_values(array_filter($kandidat, fn ($p) => !$p['dilatih']));
+        $antrian = array_values(array_filter($kandidat, fn ($p) => !$p['dilatih'] && !$p['diabaikan']));
+        $diabaikan = count(array_filter($kandidat, fn ($p) => !$p['dilatih'] && $p['diabaikan']));
+        if ($diabaikan > 0) {
+            $this->line("{$diabaikan} publikasi dilewati karena pernah dihapus dari basis pengetahuan (latih lagi lewat tombol \"Latih AI\" di menu Data API BPS).");
+        }
         if ($antrian === []) {
             $this->info('Semua publikasi sudah ada di basis pengetahuan AI.');
 
@@ -87,6 +96,9 @@ class PublikasiBpsCommand extends Command
             if ($hasil['galatLatih']) {
                 $gagal++;
                 $this->line("{$nomor} <error>✗</error> {$p['judul']}: {$hasil['galatLatih']}");
+                if ($hasil['lanjut']) {
+                    continue; // hanya publikasi ini yang gagal
+                }
                 $this->error('Dihentikan: layanan AI tidak dapat dipakai. PDF yang sudah diunduh dilatihkan pada percobaan berikutnya.');
                 break;
             }
