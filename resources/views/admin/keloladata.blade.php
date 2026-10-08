@@ -880,7 +880,12 @@
                             </div>
                         </div>
                         <input type="hidden" name="matrix_data" :value="JSON.stringify(editingIndicator.tableData)">
-                        <div class="bg-white rounded-xl p-4 md:p-5 shadow-sm border border-gray-200">
+                        <div x-show="editingIndicator.bps_source" x-cloak
+                            class="bg-blue-50 border border-blue-200 text-blue-800 rounded-xl p-4 text-sm">
+                            Data tabel indikator ini diambil otomatis dari tabel dinamis WebAPI BPS, jadi tidak bisa diedit di sini.
+                            Yang disimpan hanya kategori, subjek, nama, dan satuan.
+                        </div>
+                        <div x-show="!editingIndicator.bps_source" class="bg-white rounded-xl p-4 md:p-5 shadow-sm border border-gray-200">
                             <div class="flex flex-wrap justify-between items-center gap-4 mb-4">
                                 <h4 class="text-sm font-semibold text-gray-700">Data Spreadsheet</h4>
                                 <div class="flex gap-2"><button type="button" @click="addEditingColumn()"

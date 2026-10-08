@@ -64,7 +64,7 @@
             </div>
             @if ($indicator->bps_source)
                 <p class="mt-4 text-xs text-gray-500">
-                    Sumber: Tabel Dinamis WebAPI BPS{{ $indicator->bps_synced_at ? ' · data diambil ' . $indicator->bps_synced_at->format('d-m-Y H:i') : '' }}
+                    Sumber: Tabel Dinamis WebAPI BPS{{ $indicator->bps_synced_at ? ' · data diambil ' . $indicator->bps_synced_at->timezone('Asia/Jakarta')->format('d-m-Y H:i') . ' WIB' : '' }}
                 </p>
             @endif
         </div>

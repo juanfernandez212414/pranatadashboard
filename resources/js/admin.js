@@ -186,6 +186,7 @@ window.kelolaData = function () {
             }
         },
         editingIndicator: {
+            bps_source: null,
             id: null,
             subject_id: '',
             name: '',
@@ -270,6 +271,8 @@ window.kelolaData = function () {
             this.editingIndicator.subject_id = indicator.subject_id;
             this.editingIndicator.name = indicator.name;
             this.editingIndicator.unit = indicator.unit || '';
+            // Indikator tabel dinamis BPS: datanya dari API, editor tabel disembunyikan.
+            this.editingIndicator.bps_source = indicator.bps_source || null;
 
             if (indicatorData.headers && indicatorData.rows) {
                 this.editingIndicator.tableData = JSON.parse(JSON.stringify(indicatorData));

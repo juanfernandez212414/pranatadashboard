@@ -132,7 +132,11 @@
 
         @if ($galatApiBps ?? null)
             <div class="bg-orange-50 border border-orange-200 text-orange-800 px-4 py-3 rounded-lg mb-4 text-sm" role="alert">
-                Data terbaru dari WebAPI BPS gagal diambil, jadi yang tampil adalah data terakhir yang tersimpan.
+                @if ($dataApiKosong ?? false)
+                    Data indikator ini belum bisa diambil dari WebAPI BPS. Coba lagi nanti, atau jalankan "Impor Semua Tabel Dinamis" di menu Data API BPS.
+                @else
+                    Data terbaru dari WebAPI BPS gagal diambil, jadi yang tampil adalah data terakhir yang tersimpan.
+                @endif
                 <span class="block text-xs mt-1">{{ $galatApiBps }}</span>
             </div>
         @endif
@@ -147,7 +151,9 @@
                             <h3 class="text-2xl font-bold text-gray-900 mb-1">{{ $vis['name'] }}</h3>
                             <p class="text-md text-gray-500">Subjek: {{ $vis['subject'] }}</p>
                             @if (!empty($vis['sumber_bps']))
-                                <p class="text-sm text-gray-500">Sumber: Tabel Dinamis WebAPI BPS{{ $vis['sumber_bps']['diperbarui'] ? ' · diambil ' . $vis['sumber_bps']['diperbarui'] : '' }}</p>
+                                <p class="text-sm text-gray-500">
+                                    Sumber: Tabel Dinamis WebAPI BPS{{ $vis['sumber_bps']['diperbarui'] ? ' · diambil ' . $vis['sumber_bps']['diperbarui'] . ' WIB' : '' }}{{ $vis['sumber_bps']['grafik'] ? ' · grafik yang disarankan BPS: ' . $vis['sumber_bps']['grafik'] : '' }}
+                                </p>
                             @endif
                         </div>
 
@@ -262,9 +268,7 @@
                         <div class="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gray-100 text-gray-400 flex items-center justify-center">
                             <i class="fas fa-chart-bar text-2xl"></i></div>
                         <h3 class="text-lg font-bold text-gray-900">Visualisasi Tidak Tersedia</h3>
-                        <p class="mt-1 text-gray-500">Format tabel data pada indikator ini belum mendukung untuk
-                            dibuatkan
-                            grafik secara otomatis.</p>
+                        <p class="mt-1 text-gray-500">{{ ($dataApiKosong ?? false) ? 'Data indikator ini belum tersedia dari WebAPI BPS.' : 'Format tabel data pada indikator ini belum mendukung untuk dibuatkan grafik secara otomatis.' }}</p>
                     @endif
                 </div>
             @endforelse

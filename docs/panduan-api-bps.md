@@ -1,15 +1,22 @@
 # Panduan Menghubungkan PRANATA ke WebAPI BPS (Tabel Dinamis)
 
-Dashboard PRANATA memakai **tabel dinamis** BPS Kota Pematangsiantar langsung dari
-[WebAPI BPS](https://webapi.bps.go.id/documentation). Tidak ada langkah impor manual:
+Dashboard PRANATA memakai **tabel dinamis** BPS Kota Pematangsiantar dari
+[WebAPI BPS](https://webapi.bps.go.id/documentation) dengan skema **impor semua**:
 
-1. **Semua tabel dinamis otomatis menjadi indikator.** Setiap tabel dinamis di BPS dibuatkan indikator,
-   dikelompokkan menurut kategori dan subjek BPS (klasifikasi CSA, sama dengan situs BPS). Daftar tabel dicek
-   ulang berkala (paling sering sekali sehari) saat Admin/Penanggung Jawab membuka Dashboard atau menu Data
-   API BPS, jadi tabel baru di BPS ikut muncul sendiri. Pengguna biasa tidak pernah menunggu proses ini.
-2. **Data dibaca dari API saat dibuka.** Saat indikator dibuka di Dashboard, Lihat Data, ekspor Excel/PDF,
-   atau saat narasi AI dibuat, datanya (**seluruh tahun**) diambil dari API lalu disimpan. Halaman lain dan
-   narasi AI (RAG) memakai data yang sama. Bila API sedang gagal, data terakhir yang tersimpan tetap dipakai.
+1. **Impor semua tabel dinamis sekaligus.** Tombol **Impor Semua Tabel Dinamis** (menu Data API BPS) atau
+   perintah `php artisan bps:sinkron` mengambil daftar semua tabel dinamis, membuatkan indikator untuk
+   tiap tabel (kategori dan subjek mengikuti klasifikasi CSA di situs BPS), lalu mengambil **data seluruh
+   tahun** tiap tabel dan menyimpannya ke database.
+2. **Dashboard membaca database.** Dashboard, Lihat Data, ekspor Excel/PDF, dan narasi AI langsung memakai
+   data tersimpan, jadi tidak menunggu API. API hanya dipanggil sebagai cadangan bila sebuah indikator
+   belum punya data.
+3. **Pembaruan** lewat tombol yang sama atau penjadwal Laravel setiap malam pukul 02.00 WIB.
+
+```
+WebAPI BPS ──(Impor Semua / bps:sinkron / jadwal malam)──► database (categories, subjects, indicators)
+                                                              │
+                                    Dashboard · Lihat Data · Ekspor · Narasi AI (RAG) ◄──┘
+```
 
 ## 1. Memasang kunci API
 
@@ -36,48 +43,50 @@ Dashboard PRANATA memakai **tabel dinamis** BPS Kota Pematangsiantar langsung da
    ```
 
    Bila berhasil, muncul `Koneksi berhasil: kunci API diterima WebAPI BPS.` beserta jumlah tabel dinamis.
-5. Buka Dashboard sebagai Admin. Kategori dan indikator dari tabel dinamis BPS langsung muncul di menu.
 
-## 2. Hal yang perlu diketahui
+## 2. Mengimpor semua tabel dinamis
 
-- **Kecepatan.** Membuka indikator pertama kali (atau setelah datanya lebih tua dari `BPS_SEGAR_MENIT`,
-  bawaan 360 menit) butuh beberapa detik karena data diambil dari API. Setelah itu data tersimpan dipakai.
-- **Indikator lama bernama sama.** Indikator yang dibuat manual/impor Excel dan namanya persis sama dengan
-  tabel dinamis BPS **tidak ditimpa otomatis** dan tidak dibuat duplikatnya. Daftarnya tampil di menu
-  **Data API BPS**; klik **Pakai data API** bila ingin datanya diganti data API (nama, subjek, dan narasi tetap).
-- **Bila API gagal**, dashboard menampilkan data terakhir yang tersimpan, dan API tidak dicoba lagi untuk
-  indikator itu selama 30 menit agar halaman tetap cepat.
-- **Mengedit indikator API** di Kelola Data hanya menyimpan nama, subjek, dan satuan. Tabel datanya selalu
-  dari API. Indikator API ditandai label **API BPS**.
-- **Menghapus indikator API** (atau subjek/kategorinya) membuat tabel itu tidak dibuat ulang otomatis. Untuk
-  memunculkannya lagi: menu **Data API BPS → "tabel disembunyikan" → Tampilkan lagi**.
-- **Jenis grafik** yang disarankan BPS untuk tabel itu (garis/batang) ditampilkan paling depan di dashboard.
-- Tab **Tabel Dinamis** di menu Data API BPS tetap bisa dipakai untuk menyimpan potongan tabel (mis. hanya
-  beberapa kecamatan) sebagai indikator tersendiri; datanya juga diperbarui dari API saat dibuka.
+**Dari aplikasi:** login sebagai Admin/Penanggung Jawab, buka menu **Data API BPS**, klik
+**Impor Semua Tabel Dinamis**. Tabel diproses satu per satu dengan progress bar; biarkan halaman tetap
+terbuka sampai muncul "Selesai". Tabel yang belum berisi data di BPS dilaporkan dan dilewati.
 
-## 3. Pembaruan otomatis (opsional)
-
-Tanpa penjadwal pun data sudah diperbarui saat dibuka. Penjadwal Laravel menambahkan pengecekan tabel
-dinamis baru setiap malam (pukul 02.00): jalankan `php artisan schedule:work` saat pengembangan, atau
-cron/Task Scheduler yang menjalankan `php artisan schedule:run` setiap menit di server.
-
-Manual dari terminal:
+**Dari terminal** (cocok untuk impor pertama yang banyak):
 
 ```bash
-php artisan bps:sinkron                 # buat indikator tabel baru + ambil ulang data semua indikator API
-php artisan bps:sinkron --hanya-katalog # hanya buat indikator untuk tabel baru
+php artisan bps:sinkron                 # indikator untuk tabel baru + data seluruh tahun semua indikator
+php artisan bps:sinkron --hanya-katalog # hanya membuat indikator untuk tabel baru (tanpa data)
 ```
 
-Di aplikasi: tombol **Cek Tabel Baru Sekarang** di menu Data API BPS.
+## 3. Hal yang perlu diketahui
 
-## 4. Bila ada masalah
+- **Indikator lama bernama sama.** Indikator manual/impor Excel yang namanya persis sama dengan tabel
+  dinamis BPS **tidak ditimpa otomatis** dan tidak dibuat duplikatnya. Daftarnya tampil di menu Data API
+  BPS; klik **Pakai data API** bila ingin datanya diganti data API (nama, subjek, dan narasi tetap).
+- **Mengedit indikator API** di Kelola Data hanya menyimpan kategori, subjek, nama, dan satuan; tabel
+  datanya selalu dari API. Indikator API ditandai label **API BPS**.
+- **Menghapus indikator API** (atau subjek/kategorinya) membuat tabel itu tidak dibuat ulang otomatis.
+  Untuk memunculkannya lagi: menu **Data API BPS → "tabel disembunyikan" → Tampilkan lagi**.
+- **Tab Tabel Dinamis** tetap bisa dipakai untuk menyimpan **potongan** tabel (mis. hanya beberapa
+  kecamatan) sebagai indikator tersendiri. Tabel lengkapnya sudah otomatis ada, jadi tidak ditimpa/digandakan.
+- **Bila API gagal**, data terakhir yang tersimpan tetap ditampilkan.
+- Di dashboard tertulis jenis grafik yang disarankan BPS untuk tabel itu (garis/batang/lingkaran).
+
+## 4. Pembaruan otomatis (opsional)
+
+Jalankan penjadwal Laravel agar impor semua berjalan setiap malam pukul 02.00 WIB: `php artisan schedule:work`
+saat pengembangan, atau cron/Task Scheduler yang menjalankan `php artisan schedule:run` setiap menit di server.
+
+Bila ingin data juga diambil ulang saat indikator dibuka (mis. setiap 6 jam), isi di `.env`:
+`BPS_SEGAR_MENIT=360` (bawaan `0` = hanya lewat impor/penjadwal).
+
+## 5. Bila ada masalah
 
 | Pesan | Penyebab dan solusi |
 | --- | --- |
 | `Kunci API BPS belum diisi` | `BPS_API_KEY` kosong, atau `php artisan config:clear` belum dijalankan. |
 | `Kunci API BPS ditolak` | Key salah atau tidak aktif. Periksa di webapi.bps.go.id. |
-| `Permintaan ditolak firewall WebAPI BPS (HTTP 403)` | Terlalu banyak permintaan. Tunggu beberapa saat. |
-| Dashboard: "Data terbaru dari WebAPI BPS gagal diambil" | API sedang bermasalah; data terakhir tetap ditampilkan. |
+| `Permintaan ditolak firewall WebAPI BPS (HTTP 403)` | Terlalu banyak permintaan; impor berhenti otomatis. Tunggu lalu ulangi. |
+| `Tabel dinamis "..." belum berisi data di WebAPI BPS` | Tabelnya memang kosong di BPS; dilewati. |
 
 Perintah pemeriksaan:
 
@@ -87,12 +96,9 @@ php artisan bps:cek 31                     # pratinjau tabel dinamis var 31 (sel
 php artisan bps:cek 31 --mentah --tahun=2024   # respons JSON mentah dari API (kunci disamarkan)
 ```
 
-Pengaturan di `.env` (opsional): `BPS_SEGAR_MENIT` (umur data sebelum diambil ulang, bawaan 360),
-`BPS_KATALOG_MENIT` (selang cek tabel baru, bawaan 1440), `BPS_CACHE_MENIT` (cache respons API, bawaan 360).
+## 6. Narasi AI (RAG)
 
-## 5. Narasi AI (RAG)
-
-Tidak ada yang berubah di layanan Hugging Face (`scripts/Hugging Face/main.py`). Sebelum narasi dibuat,
-Laravel memastikan data indikator sudah yang terbaru dari API, lalu mengirim `data_json` (format tabel
-`headers`/`rows` yang sama dengan impor Excel) ke `/generate-narrative`. Karena seluruh tahun ikut dikirim,
-tabel bisa lebih besar dari sebelumnya.
+Tidak ada yang berubah di layanan Hugging Face (`scripts/Hugging Face/main.py`). Laravel mengirim data
+indikator dari database (`data_json`, format tabel `headers`/`rows` yang sama dengan impor Excel) ke
+`/generate-narrative`; `main.py` mengubahnya ke tabel markdown, menambah konteks RAG dari Qdrant, lalu
+memanggil LLM. Karena seluruh tahun ikut dikirim, tabel bisa lebih besar dari sebelumnya.

@@ -63,12 +63,14 @@ class DataBpsController extends Controller
         $katalog = ['kategori' => [], 'subjek' => [], 'variabel' => []];
         $publikasi = ['meta' => ['page' => 1, 'pages' => 0, 'total' => 0], 'item' => []];
         $galat = null;
+        @set_time_limit(90);
 
         try {
             if ($tab === 'dinamis') {
-                $katalog = $this->katalogDinamis();
+                // Batas waktu halaman: bila API BPS lambat/menggantung, halaman tetap terbuka dengan pesan galat.
+                $katalog = $this->bps->denganBatasHalaman(fn () => $this->katalogDinamis());
             } else {
-                $publikasi = $this->bps->daftarPublikasi(max(1, (int) $request->query('page', 1)), $kataKunci);
+                $publikasi = $this->bps->denganBatasHalaman(fn () => $this->bps->daftarPublikasi(max(1, (int) $request->query('page', 1)), $kataKunci));
                 $tersimpan = $this->pdfTersimpan();
                 foreach ($publikasi['item'] as &$pub) {
                     $pub['title'] = KonverterTabelBps::bersihkanTeks($pub['title'] ?? '', buangTerjemahan: false);
@@ -90,39 +92,86 @@ class DataBpsController extends Controller
             'kataKunci' => $kataKunci,
             'galat' => $galat,
             'domain' => $this->bps->domain(),
-            'otomatis' => $this->ringkasanOtomatis(),
+            'otomatis' => $this->ringkasanOtomatis($tab === 'dinamis' && $galat === null),
         ]);
     }
 
-    // Ringkasan indikator yang datanya otomatis diambil dari tabel dinamis API.
-    private function ringkasanOtomatis(): array
+    /**
+     * Ringkasan indikator tabel dinamis API. Cek tabel baru dan daftar indikator lama bernama sama hanya
+     * dihitung di tab Tabel Dinamis saat katalog berhasil dimuat (katalognya sudah ada di cache), agar tab
+     * Publikasi atau API yang bermasalah tidak membuat halaman lambat.
+     */
+    private function ringkasanOtomatis(bool $pakaiKatalog): array
     {
-        if ($this->bps->siap()) {
+        $kandidat = [];
+        if ($pakaiKatalog && $this->bps->siap()) {
             $this->sinkron->cerminkanKatalogDiam();
+            try {
+                $kandidat = $this->bps->denganBatasHalaman(fn () => $this->sinkron->kandidatTautan());
+            } catch (\Throwable) {
+                // daftar indikator bernama sama hanya pelengkap
+            }
         }
         $tertaut = Indicator::where('bps_source', SinkronisasiBps::SUMBER);
 
-        try {
-            $kandidat = $this->bps->siap() ? $this->bps->denganBatasHalaman(fn () => $this->sinkron->kandidatTautan()) : [];
-        } catch (\Throwable) {
-            $kandidat = []; // daftar tabel gagal dimuat; galatnya sudah tampil di tab Tabel Dinamis
-        }
-
         return [
             'jumlah' => (clone $tertaut)->count(),
+            'berisiData' => (clone $tertaut)->whereNotNull('data')->count(),
             'terakhir' => (clone $tertaut)->max('bps_synced_at'),
             'diabaikan' => SinkronisasiBps::tabelDiabaikan(),
             'kandidat' => $kandidat,
         ];
     }
 
+    // ===========================================
+    // --- IMPOR SEMUA TABEL DINAMIS (DIPANGGIL BROWSER, SATU INDIKATOR PER PERMINTAAN) ---
+    // ===========================================
+
+    // Langkah 1: cek tabel dinamis baru (dibuatkan indikator), lalu daftar indikator yang datanya diambil.
+    public function imporSemuaMulai()
+    {
+        $this->cekAkses();
+        @set_time_limit(180);
+
+        try {
+            $katalog = $this->sinkron->cerminkanKatalog(paksa: true);
+        } catch (BpsApiException $e) {
+            return response()->json(['galat' => $e->getMessage()], 502);
+        }
+
+        return response()->json([
+            'katalog' => $katalog,
+            'indikator' => Indicator::where('bps_source', SinkronisasiBps::SUMBER)->whereNotNull('bps_table_id')
+                ->orderBy('id')->get(['id', 'name'])->map(fn ($i) => ['id' => $i->id, 'nama' => $i->name]),
+        ]);
+    }
+
+    // Langkah 2: data seluruh tahun satu indikator diambil dari API dan disimpan ke database.
+    public function imporSemuaSatu(Indicator $indicator)
+    {
+        $this->cekAkses();
+        @set_time_limit(120);
+
+        try {
+            $this->bps->denganBatasHalaman(fn () => $this->sinkron->perbarui($indicator));
+        } catch (BpsApiException $e) {
+            // Diblokir firewall / kunci ditolak: permintaan berikutnya pasti gagal juga, jadi browser berhenti.
+            $berhenti = str_contains($e->getMessage(), 'HTTP 403') || str_contains($e->getMessage(), 'Kunci API BPS ditolak');
+
+            return response()->json(['galat' => $e->getMessage(), 'berhenti' => $berhenti], 502);
+        }
+
+        return response()->json(['pesan' => "Data \"{$indicator->name}\" tersimpan."]);
+    }
+
     // Menautkan indikator lama (manual/Excel) ke tabel dinamis BPS yang namanya sama, atas pilihan Admin/PJ.
     public function tautkanIndikator(Indicator $indicator)
     {
         $this->cekAkses();
+        @set_time_limit(90);
 
         try {
-            $berhasil = $this->sinkron->tautkanIndikator($indicator);
+            $berhasil = $this->bps->denganBatasHalaman(fn () => $this->sinkron->tautkanIndikator($indicator));
         } catch (BpsApiException $e) {
             return back()->with('error', $e->getMessage());
         }
@@ -145,25 +194,6 @@ class DataBpsController extends Controller
         }
 
         return back()->with('success', 'Tabel dinamis ditampilkan lagi sebagai indikator.');
-    }
-
-    // Tombol "Cek Tabel Baru Sekarang": cermin katalog tabel dinamis tanpa menunggu jadwal berkala.
-    public function perbaruiKatalog()
-    {
-        $this->cekAkses();
-        set_time_limit(120);
-
-        try {
-            $hasil = $this->sinkron->cerminkanKatalog(paksa: true);
-        } catch (BpsApiException $e) {
-            return back()->with('error', $e->getMessage());
-        }
-        if ($hasil === null) {
-            return back()->with('error', 'Pengecekan tabel baru sedang berjalan atau kunci API belum diisi. Coba beberapa saat lagi.');
-        }
-
-        return back()->with('success', "Daftar tabel dinamis diperiksa: {$hasil['baru']} indikator baru, {$hasil['tetap']} sudah ada"
-            . ($hasil['namaSama'] ? ", {$hasil['namaSama']} bernama sama dengan indikator lama (lihat daftar di bawah)." : '.'));
     }
 
     // Kategori subjek & subjek CSA untuk penyaring, sama persis dengan situs BPS: semua kategori dan
@@ -256,7 +286,7 @@ class DataBpsController extends Controller
             'area' => $this->area(),
             'hasil' => $hasil,
             'kategori' => Category::with(['subjects' => fn ($q) => $q->orderBy('name')])->orderBy('name')->get(),
-            'indikator' => Indicator::with('subject:id,name')->orderBy('name')->get(['id', 'name', 'subject_id']),
+            'indikator' => Indicator::with('subject:id,name')->orderBy('name')->get(['id', 'name', 'subject_id', 'bps_source', 'bps_options']),
         ]);
     }
 
@@ -282,6 +312,17 @@ class DataBpsController extends Controller
             'tahun.max' => 'Paling banyak ' . self::MAKS_TAHUN . ' tahun per indikator.',
         ]);
 
+        // Tabel dinamis lengkap sudah otomatis menjadi indikator (seluruh tahun, diperbarui dari API). Tab ini
+        // untuk menyimpan potongan tabel sebagai indikator tersendiri, jadi indikator otomatis itu tidak ditimpa
+        // dan tidak digandakan.
+        $target = !empty($data['indicator_id']) ? Indicator::findOrFail($data['indicator_id']) : null;
+        if ($target && $target->bps_source === SinkronisasiBps::SUMBER && empty($target->bps_options)) {
+            return back()->withInput()->with('error', "Indikator \"{$target->name}\" berisi tabel dinamis lengkap yang datanya otomatis dari WebAPI BPS, jadi tidak ditimpa. Simpan pilihan ini sebagai indikator baru.");
+        }
+        if (!$target && !self::saringan($data) && ($cermin = SinkronisasiBps::indikatorCermin((string) $data['var']))) {
+            return back()->withInput()->with('error', "Tabel ini sudah otomatis menjadi indikator \"{$cermin->name}\" dengan data seluruh tahun. Pilih judul baris atau karakteristik tertentu bila ingin menyimpan potongan tabel.");
+        }
+
         set_time_limit(120);
 
         try {
@@ -306,8 +347,8 @@ class DataBpsController extends Controller
             'bps_synced_at' => now(),
         ];
 
-        if (!empty($data['indicator_id'])) {
-            Indicator::findOrFail($data['indicator_id'])->update($nilai);
+        if ($target) {
+            $target->update($nilai);
             $pesan = "Indikator \"{$data['name']}\" diperbarui dengan data dari API BPS.";
         } else {
             Indicator::create($nilai + ['user_id' => Auth::id()]); // Audit trail: catat siapa yang mengambil

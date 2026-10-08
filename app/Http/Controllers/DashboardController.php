@@ -88,6 +88,7 @@ class DashboardController extends Controller
         // ... (Bagian 3: Persiapan Visualisasi - sudah benar) ...
         $indicatorsWithVisualization = []; // Set default kosong
         $galatApiBps = null;
+        $dataApiKosong = false;
 
         // HANYA ambil data visualisasi JIKA Indikator sudah benar-benar dipilih
         if ($selectedIndicatorId) {
@@ -95,6 +96,7 @@ class DashboardController extends Controller
             // agar filter AJAX, Lihat Data, dan narasi AI memakai data yang sama.
             if ($indikatorDipilih = Indicator::find($selectedIndicatorId)) {
                 $galatApiBps = $sinkron->pastikanSegar($indikatorDipilih);
+                $dataApiKosong = $indikatorDipilih->bps_source !== null && empty($indikatorDipilih->data);
             }
             $indicatorQuery = Indicator::query()->where('id', $selectedIndicatorId);
             $indicatorsWithVisualization = $this->prepareIndicatorsForVisualization($indicatorQuery);
@@ -114,6 +116,7 @@ class DashboardController extends Controller
             'selectedIndicatorId' => $selectedIndicatorId ? intval($selectedIndicatorId) : null,
             'indicatorsWithVisualization' => $indicatorsWithVisualization,
             'galatApiBps' => $galatApiBps,
+            'dataApiKosong' => $dataApiKosong,
         ]);
     }
 
@@ -154,11 +157,8 @@ class DashboardController extends Controller
                 }
                 if (empty($parsedData['available_types'])) continue;
 
-                // Tabel dinamis BPS: jenis grafik bawaan BPS (graph_name di WebAPI) ditampilkan paling depan.
+                // array_filter di atas bisa menyisakan kunci berlubang; JS butuh array JSON, bukan objek.
                 $parsedData['available_types'] = array_values($parsedData['available_types']);
-                if ($indicator->bps_chart && in_array($indicator->bps_chart, $parsedData['available_types'], true)) {
-                    $parsedData['available_types'] = array_values(array_unique([$indicator->bps_chart, ...$parsedData['available_types']]));
-                }
                 $result[] = [
                     'id' => $indicator->id,
                     'name' => $indicator->name,
@@ -169,7 +169,12 @@ class DashboardController extends Controller
                     'filters' => $parsedData['filters'],
                     'visualization_config' => $parsedData['config'],
                     'narrative' => $indicator->narrative->content ?? '',
-                    'sumber_bps' => $indicator->bps_source ? ['diperbarui' => $indicator->bps_synced_at?->format('d-m-Y H:i')] : null,
+                    // Tabel dinamis BPS: waktu data diambil, dan jenis grafik yang disarankan BPS (graph_name).
+                    'sumber_bps' => $indicator->bps_source ? [
+                        'diperbarui' => $indicator->bps_synced_at?->timezone('Asia/Jakarta')->format('d-m-Y H:i'),
+                        'grafik' => in_array($indicator->bps_chart, $parsedData['available_types'], true)
+                            ? ['line' => 'Garis', 'bar' => 'Batang', 'pie' => 'Lingkaran'][$indicator->bps_chart] ?? null : null,
+                    ] : null,
                 ];
             }
         }

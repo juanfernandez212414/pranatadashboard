@@ -7,7 +7,9 @@
     $pakaiOld = (string) old('var') === (string) $var;
     $lama = fn (string $kunci, $bawaan) => $pakaiOld ? old($kunci, $bawaan) : $bawaan;
 
-    $sama = $indikator->first(fn ($i) => mb_strtolower(trim($i->name)) === mb_strtolower(trim($tabel['judul'])));
+    // Indikator otomatis (tabel dinamis lengkap dari API) tidak dijadikan sasaran "perbarui".
+    $sama = $indikator->first(fn ($i) => mb_strtolower(trim($i->name)) === mb_strtolower(trim($tabel['judul']))
+        && !($i->bps_source === 'dinamis' && empty($i->bps_options)));
     $subjekKe = $kategori->flatMap->subjects->pluck('category_id', 'id');
     $petaIndikator = $indikator->mapWithKeys(fn ($i) => [$i->id => ['subjek' => $i->subject_id, 'kategori' => $subjekKe[$i->subject_id] ?? null]]);
     $indikatorAwal = $pakaiOld ? old('indicator_id') : $sama?->id;

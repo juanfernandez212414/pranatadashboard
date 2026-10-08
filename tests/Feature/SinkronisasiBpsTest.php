@@ -198,14 +198,15 @@ it('hanya menyimpan nama, subjek, dan satuan saat indikator API diedit di Kelola
         ->toBe(['Jumlah Penduduk Kecamatan', 'Orang', null, '31']);
 });
 
-it('menampilkan jenis grafik bawaan BPS paling depan di dashboard', function () {
+it('menyebut jenis grafik yang disarankan BPS tanpa mengubah susunan grafik dashboard', function () {
     palsukanBps();
     $this->actingAs($this->admin)->get('/admin/dashboard');
     $penduduk = Indicator::with('subject')->where('bps_table_id', '31')->sole();
     expect($penduduk->bps_chart)->toBe('bar'); // graph_name var 31 di fixture
 
     $this->actingAs($this->admin)->get(urlDashboard('/admin', $penduduk))
-        ->assertViewHas('indicatorsWithVisualization', fn (array $vis) => $vis[0]['available_types'][0] === 'bar');
+        ->assertSee('grafik yang disarankan BPS: Batang')
+        ->assertViewHas('indicatorsWithVisualization', fn (array $vis) => $vis[0]['available_types'][0] === 'choropleth');
 });
 
 it('Lihat Data dan ekspor tetap terbuka bila data indikator API belum bisa diambil', function () {
@@ -272,7 +273,21 @@ it('mengambil seluruh tahun dari API saat indikator dibuka di dashboard', functi
     expect(jumlahPermintaanData())->toBe(8);
 });
 
-it('tidak menghubungi API lagi selama data masih segar, dan mengambil ulang setelahnya', function () {
+it('membaca data tersimpan tanpa menghubungi API bila datanya sudah diimpor', function () {
+    palsukanBps();
+    $this->actingAs($this->admin)->get('/admin/dashboard');
+    $penduduk = Indicator::with('subject')->where('bps_table_id', '31')->sole();
+    $this->actingAs($this->admin)->get(urlDashboard('/admin', $penduduk));
+    $awal = jumlahPermintaanData();
+
+    $this->travel(30)->days();
+    $this->actingAs($this->biasa)->get(urlDashboard('/pengguna', $penduduk))->assertOk();
+    $this->actingAs($this->biasa)->get("/pengguna/lihatdata/{$penduduk->id}")->assertOk();
+    expect(jumlahPermintaanData())->toBe($awal);
+});
+
+it('mengambil ulang data yang lebih tua dari BPS_SEGAR_MENIT saat dibuka bila diatur', function () {
+    config(['services.bps.segar_menit' => 360]);
     palsukanBps();
     $this->actingAs($this->admin)->get('/admin/dashboard');
     $penduduk = Indicator::with('subject')->where('bps_table_id', '31')->sole();
@@ -307,6 +322,7 @@ it('tidak menghubungi API lagi selama jeda setelah pengambilan data gagal', func
 });
 
 it('menampilkan data terakhir yang tersimpan bila API gagal saat indikator dibuka', function () {
+    config(['services.bps.segar_menit' => 360]);
     $gagal = false;
     palsukanBps(['model=data' => function (Request $r) use (&$gagal) {
         parse_str((string) parse_url($r->url(), PHP_URL_QUERY), $q);
@@ -328,6 +344,7 @@ it('menampilkan data terakhir yang tersimpan bila API gagal saat indikator dibuk
 });
 
 it('mengambil data dari API saat Lihat Data dibuka dan saat diekspor', function () {
+    config(['services.bps.segar_menit' => 360]);
     palsukanBps();
     $this->actingAs($this->admin)->get('/admin/dashboard');
     $penduduk = Indicator::where('bps_table_id', '32')->sole();
@@ -362,6 +379,7 @@ it('mengirim data terbaru dari API ke layanan narasi AI', function () {
 });
 
 it('mencatat tautan API saat tabel dinamis disimpan dari tab Tabel Dinamis', function () {
+    config(['services.bps.segar_menit' => 360]);
     palsukanBps();
     $subjek = Subject::create(['category_id' => Category::create(['name' => 'K'])->id, 'name' => 'S']);
 
@@ -386,20 +404,104 @@ it('mencatat tautan API saat tabel dinamis disimpan dari tab Tabel Dinamis', fun
 // --- HALAMAN DATA API BPS & PERINTAH ARTISAN ---
 // ===========================================
 
-it('menampilkan ringkasan tabel dinamis otomatis di halaman Data API BPS', function () {
+it('menampilkan ringkasan dan tombol Impor Semua Tabel Dinamis di halaman Data API BPS', function () {
     palsukanBps();
 
     $this->actingAs($this->admin)->get('/admin/data-bps')
         ->assertOk()
-        ->assertSee('Dashboard otomatis memakai tabel dinamis BPS')
+        ->assertSee('Tabel dinamis BPS untuk dashboard')
         ->assertSee('4 indikator tertaut ke tabel dinamis WebAPI BPS')
-        ->assertSee('Cek Tabel Baru Sekarang')
+        ->assertSee('0 di antaranya sudah berisi data')
+        ->assertSee('Impor Semua Tabel Dinamis')
         ->assertDontSee('Sinkronisasi Semua Tabel');
 
-    $this->actingAs($this->pj)->post('/penanggungjawab/data-bps/perbarui-katalog')
-        ->assertSessionHas('success', 'Daftar tabel dinamis diperiksa: 0 indikator baru, 4 sudah ada.');
+    // Tab Publikasi tidak memuat daftar tabel dinamis.
+    $sebelum = count(Http::recorded());
+    $this->travel(2)->days();
+    $this->actingAs($this->admin)->get('/admin/data-bps?tab=publikasi')->assertOk();
+    expect(collect(Http::recorded())->slice($sebelum)->filter(fn ($r) => str_contains($r[0]->url(), 'model=var'))->count())->toBe(0);
+});
 
-    $this->actingAs($this->biasa)->post('/admin/data-bps/perbarui-katalog')->assertForbidden();
+it('mengimpor semua tabel dinamis beserta datanya lewat tombol Impor Semua (satu indikator per permintaan)', function () {
+    palsukanBps();
+
+    $daftar = $this->actingAs($this->pj)->postJson('/penanggungjawab/data-bps/impor-semua')
+        ->assertOk()
+        ->assertJsonPath('katalog.baru', 4)
+        ->json('indikator');
+    expect($daftar)->toHaveCount(4);
+
+    $penduduk = collect($daftar)->firstWhere('nama', 'Penduduk per kecamatan');
+    $this->actingAs($this->pj)->postJson("/penanggungjawab/data-bps/impor-semua/{$penduduk['id']}")
+        ->assertOk()
+        ->assertJsonPath('pesan', 'Data "Penduduk per kecamatan" tersimpan.');
+    expect(judulKolom(Indicator::find($penduduk['id'])))->toBe(['Kecamatan', '2020', '2023', '2024']);
+
+    // Tabel yang belum berisi data di BPS dilaporkan gagal tanpa menghentikan proses.
+    $inflasi = collect($daftar)->firstWhere('nama', 'Inflasi');
+    $this->actingAs($this->pj)->postJson("/penanggungjawab/data-bps/impor-semua/{$inflasi['id']}")
+        ->assertStatus(502)
+        ->assertJsonPath('berhenti', false);
+
+    $this->actingAs($this->biasa)->postJson('/admin/data-bps/impor-semua')->assertForbidden();
+    $this->actingAs($this->biasa)->postJson("/admin/data-bps/impor-semua/{$penduduk['id']}")->assertForbidden();
+});
+
+it('meminta browser berhenti mengimpor bila WebAPI BPS memblokir (HTTP 403)', function () {
+    $diblokir = false;
+    palsukanBps(['model=th' => function (Request $r) use (&$diblokir) {
+        return $diblokir ? Http::response('Forbidden', 403) : Http::response(fixtureBps('th_32.json'));
+    }]);
+    $this->actingAs($this->admin)->get('/admin/dashboard');
+    $diblokir = true;
+
+    $this->actingAs($this->admin)->postJson('/admin/data-bps/impor-semua/' . Indicator::where('bps_table_id', '32')->value('id'))
+        ->assertStatus(502)
+        ->assertJsonPath('berhenti', true);
+});
+
+it('tidak menimpa atau menggandakan indikator otomatis lewat tab Tabel Dinamis', function () {
+    palsukanBps();
+    $this->actingAs($this->admin)->get('/admin/dashboard');
+    $cermin = Indicator::where('bps_table_id', '31')->sole();
+    $subjek = $cermin->subject_id;
+
+    // Form hasil tidak lagi menawarkan "perbarui" indikator otomatis sebagai bawaan.
+    $this->actingAs($this->admin)->get('/admin/data-bps/dinamis/hasil?data[0][var]=31&data[0][baris][]=10&data[0][baris][]=11')
+        ->assertOk()
+        ->assertSee("mode: 'baru'", false);
+
+    $this->actingAs($this->admin)->post('/admin/data-bps/tabel', [
+        'var' => 31, 'baris' => [10, 11], 'subject_id' => $subjek, 'name' => 'Penduduk per kecamatan', 'indicator_id' => $cermin->id,
+    ])->assertSessionHas('error');
+    $this->actingAs($this->admin)->post('/admin/data-bps/tabel', [
+        'var' => 31, 'tahun' => ['2024'], 'subject_id' => $subjek, 'name' => 'Penduduk 2024',
+    ])->assertSessionHas('error');
+
+    expect(Indicator::where('bps_table_id', '31')->count())->toBe(1)
+        ->and($cermin->fresh()->bps_options)->toBeNull();
+
+    // Potongan tabel (judul baris tertentu) tetap bisa disimpan sebagai indikator baru.
+    $this->actingAs($this->admin)->post('/admin/data-bps/tabel', [
+        'var' => 31, 'baris' => [10, 11], 'subject_id' => $subjek, 'name' => 'Penduduk Dua Kecamatan',
+    ])->assertRedirect()->assertSessionHas('success');
+    $this->actingAs($this->admin)->get('/admin/data-bps')->assertOk();
+    expect(Indicator::where('bps_table_id', '31')->count())->toBe(2)
+        ->and(Indicator::where('bps_table_id', '31')->whereNull('bps_options')->count())->toBe(1);
+});
+
+it('memberi tahu bila data indikator API belum bisa diambil, bukan menyebut format tidak didukung', function () {
+    Http::fake(['*' => Http::response('Service Unavailable', 503)]);
+    $subjek = Subject::create(['category_id' => Category::create(['name' => 'K'])->id, 'name' => 'S']);
+    $indikator = Indicator::create(['subject_id' => $subjek->id, 'name' => 'Penduduk', 'data' => null,
+        'bps_source' => 'dinamis', 'bps_table_id' => '31']);
+
+    $this->actingAs($this->biasa)->get(urlDashboard('/pengguna', $indikator->load('subject')))
+        ->assertOk()
+        ->assertSee('Data indikator ini belum bisa diambil dari WebAPI BPS')
+        ->assertSee('Data indikator ini belum tersedia dari WebAPI BPS.')
+        ->assertDontSee('data terakhir yang tersimpan')
+        ->assertDontSee('Format tabel data pada indikator ini');
 });
 
 it('membuat indikator semua tabel dinamis dan mengambil datanya lewat php artisan bps:sinkron', function () {

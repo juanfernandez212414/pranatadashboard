@@ -68,7 +68,7 @@ class CekBps extends Command
         $jumlahIndikator = Indicator::where('bps_source', SinkronisasiBps::SUMBER)->count();
         $this->line("Tabel dinamis di BPS: {$jumlahTabel}. Indikator PRANATA yang tertaut API: {$jumlahIndikator}.");
         $this->newLine();
-        $this->line('Tabel dinamis otomatis muncul di dashboard. Untuk membuat semuanya sekarang: php artisan bps:sinkron');
+        $this->line('Impor semua tabel dinamis beserta datanya: php artisan bps:sinkron (atau tombol "Impor Semua Tabel Dinamis" di menu Data API BPS).');
 
         return self::SUCCESS;
     }

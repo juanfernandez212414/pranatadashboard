@@ -18,10 +18,12 @@ use Illuminate\Support\Facades\Log;
  *    per services.bps.katalog_menit) saat Admin/PJ membuka dashboard atau Data API BPS, oleh penjadwal, dan
  *    oleh perintah "php artisan bps:sinkron". Indikator lama (manual/Excel) yang namanya sama dengan tabel
  *    BPS tidak ditimpa otomatis: Admin/PJ memilih sendiri untuk menautkannya (tautkanIndikator).
- * 2. Baca API saat dibuka: saat indikator dibuka (dashboard, Lihat Data, ekspor, narasi AI), datanya
- *    diambil dari API dengan SELURUH tahun yang tersedia bila sudah lebih tua dari services.bps.segar_menit,
- *    lalu disimpan di Indicator.data. Halaman lain dan narasi AI (RAG) memakai data yang sama. Bila API
- *    gagal, data terakhir yang tersimpan tetap dipakai.
+ * 2. Impor data: data seluruh tahun semua indikator diambil dari API dan disimpan di Indicator.data lewat
+ *    tombol "Impor Semua Tabel Dinamis" (Data API BPS), perintah "php artisan bps:sinkron", dan penjadwal
+ *    harian. Dashboard, Lihat Data, ekspor, dan narasi AI (RAG) membaca data tersimpan itu.
+ * 3. Cadangan saat dibuka (pastikanSegar): indikator yang datanya belum ada diambil dari API saat dibuka.
+ *    Bila services.bps.segar_menit diisi (> 0), data yang lebih tua dari itu juga diambil ulang saat dibuka.
+ *    Bila API gagal, data terakhir yang tersimpan tetap dipakai.
  *
  * Indikator tertaut API ditandai bps_source = 'dinamis' dan bps_table_id = ID var. bps_options berisi
  * saringan (judul baris/karakteristik/turunan tahun) untuk indikator yang disimpan dari tab Tabel Dinamis;
@@ -245,10 +247,10 @@ class SinkronisasiBps
     // ===========================================
 
     /**
-     * Memastikan data indikator tertaut API cukup baru sebelum ditampilkan/dikirim ke AI: bila belum pernah
-     * diambil atau lebih tua dari services.bps.segar_menit (atau $paksa), data diambil dari API. Indikator
-     * yang tidak tertaut API tidak disentuh. Kegagalan API tidak menghentikan halaman: data tersimpan
-     * tetap dipakai dan pesan galatnya dikembalikan.
+     * Memastikan indikator tertaut API punya data sebelum ditampilkan/dikirim ke AI: bila datanya belum ada
+     * (atau $paksa, atau lebih tua dari services.bps.segar_menit bila diisi > 0), data diambil dari API.
+     * Indikator yang tidak tertaut API tidak disentuh. Kegagalan API tidak menghentikan halaman: data
+     * tersimpan tetap dipakai dan pesan galatnya dikembalikan.
      *
      * @return string|null pesan galat bila pengambilan dari API gagal, selain itu null
      */
@@ -258,9 +260,12 @@ class SinkronisasiBps
             return null;
         }
 
-        $menit = self::menit('segar_menit', 360);
-        $segar = $indikator->bps_synced_at && $indikator->bps_synced_at->gt(now()->subMinutes($menit)) && !empty($indikator->data['rows']);
-        if ($segar && !$paksa) {
+        // segar_menit 0 (bawaan): data yang sudah diimpor dipakai apa adanya; diperbarui lewat impor/penjadwal.
+        $menit = max(0, (int) config('services.bps.segar_menit', 0));
+        $adaData = !empty($indikator->data['rows']);
+        $kedaluwarsa = $menit > 0 && (!$indikator->bps_synced_at || $indikator->bps_synced_at->lt(now()->subMinutes($menit)));
+        // Indikator yang baru ditautkan (bps_synced_at kosong) masih berisi data lama non-API: ambil dari API.
+        if ($adaData && $indikator->bps_synced_at && !$kedaluwarsa && !$paksa) {
             return null;
         }
 
@@ -291,7 +296,7 @@ class SinkronisasiBps
             // Satu tabel bisa butuh beberapa permintaan API; batas waktu PHP dihitung ulang dari sini.
             @set_time_limit(120);
             // Respons API di cache yang lebih muda dari batas segar boleh dipakai; $paksa = harus dari API.
-            $this->bps->denganBatasHalaman(fn () => $this->perbarui($indikator, $paksa ? now()->getTimestamp() : now()->subMinutes($menit)->getTimestamp()));
+            $this->bps->denganBatasHalaman(fn () => $this->perbarui($indikator, $paksa || $menit === 0 ? now()->getTimestamp() : now()->subMinutes($menit)->getTimestamp()));
             Cache::forget($kunciGagal);
 
             return null;
@@ -325,11 +330,12 @@ class SinkronisasiBps
         }
 
         // updated_at hanya berubah bila isi datanya berubah (dashboard memakainya untuk indikator terbaru).
+        // Satuan dari API hanya diisi pada pengambilan pertama; setelah itu satuan diatur pengguna.
         $indikator->timestamps = $indikator->data !== $tabel['matriks'];
         try {
             $indikator->update([
                 'data' => $tabel['matriks'],
-                'unit' => $indikator->unit ?: (self::potong($tabel['satuan'], 50) ?: null),
+                'unit' => $indikator->bps_synced_at ? $indikator->unit : ($indikator->unit ?: (self::potong($tabel['satuan'], 50) ?: null)),
                 'bps_synced_at' => now(),
             ]);
         } finally {
@@ -454,6 +460,12 @@ class SinkronisasiBps
     private static function potong(string $teks, int $panjang): string
     {
         return mb_substr(trim($teks), 0, $panjang);
+    }
+
+    /** Indikator cermin (tabel dinamis lengkap tanpa saringan) untuk var ini, bila ada. */
+    public static function indikatorCermin(string $idVar): ?Indicator
+    {
+        return Indicator::where('bps_source', self::SUMBER)->where('bps_table_id', $idVar)->whereNull('bps_options')->first();
     }
 
     private static function menit(string $kunci, int $bawaan): int

@@ -13,7 +13,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // Satu klien WebAPI BPS per permintaan: controller dan SinkronisasiBps berbagi pengaturan yang sama
+        // (mis. batas waktu halaman dari BpsApiClient::denganBatasHalaman).
+        $this->app->scoped(\App\Services\Bps\BpsApiClient::class);
     }
 
     /**
