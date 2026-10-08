@@ -13,3 +13,7 @@ Artisan::command('inspire', function () {
 // Berjalan bila penjadwal Laravel aktif: "php artisan schedule:work" saat pengembangan, atau cron / Task
 // Scheduler yang menjalankan "php artisan schedule:run" setiap menit di server.
 Schedule::command('bps:sinkron')->dailyAt('02:00')->timezone('Asia/Jakarta')->withoutOverlapping();
+
+// Setiap malam pukul 03.00 WIB: publikasi BPS baru (rilis sejak BPS_PUBLIKASI_SEJAK, judul memuat
+// BPS_PUBLIKASI_KATA bila diisi) diunduh dari WebAPI BPS dan dilatihkan ke basis pengetahuan AI.
+Schedule::command('bps:publikasi')->dailyAt('03:00')->timezone('Asia/Jakarta')->withoutOverlapping();

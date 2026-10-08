@@ -389,36 +389,120 @@ it('menolak ID tabel dinamis yang tidak valid tanpa menghubungi API', function (
 it('menandai publikasi yang PDF-nya sudah ada di basis pengetahuan walau penamaannya berbeda', function () {
     palsukanBps();
     file_put_contents($this->folderPdf . '/KECAMATAN_SIANTAR_BARAT_DALAM_ANGKA_(2026).pdf', '%PDF-1.4');
+    file_put_contents($this->storage . '/app/processed_log_bge_m3.txt', 'KECAMATAN_SIANTAR_BARAT_DALAM_ANGKA_(2026).pdf' . PHP_EOL);
 
     $this->actingAs($this->admin)->get('/admin/data-bps?tab=publikasi')
         ->assertOk()
         ->assertSee('Kecamatan Siantar Barat Dalam Angka 2026')
         ->assertSee('Kecamatan Siantar Martoba Dalam Angka 2026')
-        ->assertSee('Sudah ada di basis pengetahuan')
+        ->assertSee('Sudah ada di basis pengetahuan AI')
+        ->assertSee('Ambil &amp; Latih Publikasi Baru', false)
         ->assertSee(route('admin.databps.publikasi.simpan', '9b58feb2f32b167766d36655'))
         ->assertDontSee(route('admin.databps.publikasi.simpan', 'd16eaeb2fff0805a540b5047'))
         ->assertSee('Halaman 1 dari 32');
 });
 
-it('menyimpan PDF publikasi ke folder basis pengetahuan tanpa menjalankan ingest', function () {
+it('menawarkan melatih PDF publikasi yang sudah tersimpan tetapi belum dilatih', function () {
     palsukanBps();
+    file_put_contents($this->folderPdf . '/Kecamatan_Siantar_Barat_Dalam_Angka_2026.pdf', '%PDF-1.4');
+
+    $this->actingAs($this->admin)->get('/admin/data-bps?tab=publikasi')
+        ->assertOk()
+        ->assertSee('PDF tersimpan, belum dilatih')
+        ->assertSee('Latih ke AI')
+        ->assertSee(route('admin.databps.publikasi.simpan', 'd16eaeb2fff0805a540b5047'));
+});
+
+it('mengunduh PDF publikasi dari API lalu langsung melatihkannya ke AI tanpa unggah manual', function () {
+    config(['services.huggingface.url' => 'https://ai-uji.test']);
+    palsukanBps(['ai-uji.test' => fn () => Http::response(['status' => 'started'])]);
 
     $this->actingAs($this->admin)->from('/admin/data-bps?tab=publikasi')
         ->post('/admin/data-bps/publikasi/d16eaeb2fff0805a540b5047')
         ->assertRedirect('/admin/data-bps?tab=publikasi')
-        ->assertSessionHas('success');
+        ->assertSessionHas('success', 'PDF "Kecamatan Siantar Barat Dalam Angka 2026" diunduh dari WebAPI BPS dan sedang dilatihkan ke AI (ekstraksi berjalan di server AI, beberapa menit).');
 
     $berkas = $this->folderPdf . '/Kecamatan_Siantar_Barat_Dalam_Angka_2026.pdf';
     expect(file_exists($berkas))->toBeTrue()
         ->and(file_get_contents($berkas))->toStartWith('%PDF-')
-        ->and(glob($this->folderPdf . '/*.part'))->toBe([]);
+        ->and(glob($this->folderPdf . '/*.part'))->toBe([])
+        ->and(file($this->storage . '/app/processed_log_bge_m3.txt', FILE_IGNORE_NEW_LINES))->toBe(['Kecamatan_Siantar_Barat_Dalam_Angka_2026.pdf']);
+    Http::assertSent(fn (Request $r) => $r->url() === 'https://ai-uji.test/upload-ingest' && $r->isMultipart());
 
-    // Ingest tetap dijalankan pengguna dari Manajemen Pengetahuan, bukan otomatis.
-    Http::assertNotSent(fn (Request $r) => str_contains($r->url(), 'ingest'));
+    // Klik kedua tidak mengunduh dan tidak melatih ulang.
+    $this->actingAs($this->admin)->post('/admin/data-bps/publikasi/d16eaeb2fff0805a540b5047')
+        ->assertSessionHas('success', 'Publikasi "Kecamatan Siantar Barat Dalam Angka 2026" sudah ada di basis pengetahuan AI (Kecamatan_Siantar_Barat_Dalam_Angka_2026.pdf).');
+    Http::assertSentCount(4); // detail + unduh + ingest, lalu detail saja
+});
 
-    // Klik kedua tidak mengunduh ulang.
-    $this->actingAs($this->admin)->post('/admin/data-bps/publikasi/d16eaeb2fff0805a540b5047')->assertSessionHas('success');
-    Http::assertSentCount(3); // detail + unduh, lalu detail saja
+it('tetap menyimpan PDF dan memberi tahu bila layanan AI belum bisa dipakai', function () {
+    config(['services.huggingface.url' => null]);
+    palsukanBps();
+
+    $this->actingAs($this->pj)->post('/penanggungjawab/data-bps/publikasi/d16eaeb2fff0805a540b5047')
+        ->assertSessionHas('error', 'PDF "Kecamatan Siantar Barat Dalam Angka 2026" tersimpan (Kecamatan_Siantar_Barat_Dalam_Angka_2026.pdf), tetapi belum bisa dilatihkan ke AI: Alamat layanan AI (HUGGINGFACE_API_URL) belum diisi di .env. Ulangi nanti, atau klik Ingest di Manajemen Pengetahuan.');
+
+    expect(file_exists($this->folderPdf . '/Kecamatan_Siantar_Barat_Dalam_Angka_2026.pdf'))->toBeTrue();
+});
+
+it('mengambil dan melatih semua publikasi baru lewat tombol (satu publikasi per permintaan)', function () {
+    config(['services.huggingface.url' => 'https://ai-uji.test']);
+    palsukanBps(['ai-uji.test' => fn () => Http::response(['status' => 'started'])]);
+    file_put_contents($this->folderPdf . '/Kecamatan_Siantar_Martoba_Dalam_Angka_2026.pdf', '%PDF-1.4');
+    file_put_contents($this->storage . '/app/processed_log_bge_m3.txt', 'Kecamatan_Siantar_Martoba_Dalam_Angka_2026.pdf' . PHP_EOL);
+
+    $daftar = $this->actingAs($this->admin)->postJson('/admin/data-bps/publikasi-otomatis', ['sejak' => now()->year, 'kata' => 'siantar barat, martoba'])
+        ->assertOk()
+        ->assertJsonPath('jumlah', 2)
+        ->json('publikasi');
+    expect(array_column($daftar, 'id'))->toBe(['d16eaeb2fff0805a540b5047']); // yang sudah dilatih dilewati
+    Http::assertSent(fn (Request $r) => str_contains($r->url(), 'model=publication') && str_contains($r->url(), 'year=' . now()->year));
+
+    $this->actingAs($this->admin)->postJson('/admin/data-bps/publikasi-otomatis/d16eaeb2fff0805a540b5047')
+        ->assertOk()
+        ->assertJsonPath('pesan', fn ($p) => str_contains($p, 'sedang dilatihkan ke AI'));
+
+    $this->actingAs($this->admin)->postJson('/admin/data-bps/publikasi-otomatis', ['sejak' => now()->year, 'kata' => 'tidak ada judul seperti ini'])
+        ->assertOk()->assertJsonPath('jumlah', 0);
+    $this->actingAs($this->biasa)->postJson('/admin/data-bps/publikasi-otomatis', ['sejak' => now()->year])->assertForbidden();
+    $this->actingAs($this->biasa)->postJson('/admin/data-bps/publikasi-otomatis/d16eaeb2fff0805a540b5047')->assertForbidden();
+});
+
+it('meminta browser berhenti bila layanan AI tidak bisa dipakai saat melatih publikasi', function () {
+    config(['services.huggingface.url' => 'https://ai-uji.test']);
+    palsukanBps(['ai-uji.test' => fn () => Http::response('Bad Gateway', 502)]);
+
+    $this->actingAs($this->admin)->postJson('/admin/data-bps/publikasi-otomatis/d16eaeb2fff0805a540b5047')
+        ->assertStatus(502)
+        ->assertJsonPath('berhenti', true);
+
+    // PDF tetap tersimpan dan belum tercatat dilatih, jadi dicoba lagi pada proses berikutnya.
+    expect(file_exists($this->folderPdf . '/Kecamatan_Siantar_Barat_Dalam_Angka_2026.pdf'))->toBeTrue()
+        ->and(file_exists($this->storage . '/app/processed_log_bge_m3.txt'))->toBeFalse();
+});
+
+it('melatih publikasi baru lewat php artisan bps:publikasi', function () {
+    config(['services.huggingface.url' => 'https://ai-uji.test']);
+    $martoba = fixtureBps('publikasi_detail.json');
+    $martoba['data'] = ['pub_id' => '9b58feb2f32b167766d36655', 'title' => 'Kecamatan Siantar Martoba Dalam Angka 2026'] + $martoba['data'];
+    palsukanBps([
+        'ai-uji.test' => fn () => Http::response(['status' => 'started']),
+        'id=9b58feb2f32b167766d36655' => fn () => Http::response($martoba),
+    ]);
+
+    $this->artisan('bps:publikasi', ['--sejak' => now()->year, '--daftar' => true])
+        ->expectsOutputToContain('belum diunduh')
+        ->assertSuccessful();
+    expect(glob($this->folderPdf . '/*.pdf'))->toBe([]);
+
+    $this->artisan('bps:publikasi', ['--sejak' => now()->year])
+        ->expectsOutputToContain('2 publikasi dilatihkan ke AI, 0 gagal.')
+        ->assertSuccessful();
+    expect(array_map('basename', glob($this->folderPdf . '/*.pdf')))
+        ->toBe(['Kecamatan_Siantar_Barat_Dalam_Angka_2026.pdf', 'Kecamatan_Siantar_Martoba_Dalam_Angka_2026.pdf']);
+    $this->artisan('bps:publikasi', ['--sejak' => now()->year])
+        ->expectsOutputToContain('Semua publikasi sudah ada di basis pengetahuan AI.')
+        ->assertSuccessful();
 });
 
 it('menolak berkas unduhan yang bukan PDF', function () {

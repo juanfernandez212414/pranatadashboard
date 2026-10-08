@@ -96,7 +96,31 @@ php artisan bps:cek 31                     # pratinjau tabel dinamis var 31 (sel
 php artisan bps:cek 31 --mentah --tahun=2024   # respons JSON mentah dari API (kunci disamarkan)
 ```
 
-## 6. Narasi AI (RAG)
+## 6. Publikasi BPS untuk basis pengetahuan AI (tanpa unggah manual)
+
+PDF publikasi BPS diunduh langsung dari WebAPI BPS ke folder basis pengetahuan dan **langsung dikirim ke
+layanan AI untuk diekstrak (ingest)**. Tidak perlu mengunduh PDF sendiri, mengunggahnya, lalu klik Ingest.
+
+- **Semua publikasi baru sekaligus:** menu **Data API BPS → tab Publikasi → Ambil & Latih Publikasi Baru**.
+  Pilih tahun rilis paling awal dan (opsional) kata kunci judul, misalnya `dalam angka`. Publikasi diproses
+  satu per satu dengan progress bar; yang sudah dilatih dilewati.
+- **Satu publikasi:** tombol **Simpan & Latih AI** di daftar publikasi (atau **Latih ke AI** bila PDF-nya
+  sudah tersimpan tetapi belum dilatih).
+- **Otomatis setiap malam (03.00 WIB)** bila penjadwal Laravel berjalan, memakai pengaturan
+  `BPS_PUBLIKASI_SEJAK` (tahun rilis paling awal; kosong = tahun lalu) dan `BPS_PUBLIKASI_KATA` di `.env`.
+- **Dari terminal** (cocok untuk PDF besar atau banyak sekaligus, tanpa batas waktu halaman):
+
+  ```bash
+  php artisan bps:publikasi --daftar                       # lihat daftar & status
+  php artisan bps:publikasi --sejak=2023 --kata="dalam angka"
+  ```
+
+Syarat: `HUGGINGFACE_API_URL` di `.env` terisi dan server Hugging Face aktif. Ekstraksi PDF berjalan di
+server AI dan butuh beberapa menit per dokumen; hasilnya terlihat di **Manajemen Pengetahuan**. Di halaman
+web, satu publikasi dibatasi sekitar 1 menit (unduh 30 detik + kirim ke AI 25 detik); bila PDF terlalu
+besar atau server AI sedang "bangun", ulangi nanti atau pakai perintah terminal.
+
+## 7. Narasi AI (RAG)
 
 Tidak ada yang berubah di layanan Hugging Face (`scripts/Hugging Face/main.py`). Laravel mengirim data
 indikator dari database (`data_json`, format tabel `headers`/`rows` yang sama dengan impor Excel) ke

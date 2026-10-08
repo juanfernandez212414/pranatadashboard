@@ -41,6 +41,11 @@ return [
         'redirect' => env('APP_URL') . '/auth/google/callback', // Menggunakan APP_URL dari .env
     ],
 
+    // Layanan AI di Hugging Face (narasi & basis pengetahuan RAG), lihat scripts/Hugging Face/main.py.
+    'huggingface' => [
+        'url' => env('HUGGINGFACE_API_URL'),
+    ],
+
     // WebAPI BPS: sumber tabel statistik & publikasi (dipakai App\Services\Bps\BpsApiClient).
     'bps' => [
         'key' => env('BPS_API_KEY'),
@@ -49,6 +54,10 @@ return [
         'cache_menit' => (int) env('BPS_CACHE_MENIT', 360),       // lama respons API disimpan di cache
         'segar_menit' => (int) env('BPS_SEGAR_MENIT', 0),         // >0: data yang lebih tua dari ini diambil ulang saat dibuka (0 = hanya lewat impor)
         'katalog_menit' => (int) env('BPS_KATALOG_MENIT', 1440),  // daftar tabel dinamis dicek ulang (tabel baru) paling sering tiap ...
+        // Publikasi yang otomatis diunduh & dilatihkan ke basis pengetahuan AI: rilis sejak tahun ini
+        // (kosong = tahun lalu) dan, bila diisi, judulnya memuat salah satu kata kunci (pisahkan koma).
+        'publikasi_sejak' => env('BPS_PUBLIKASI_SEJAK'),
+        'publikasi_kata' => env('BPS_PUBLIKASI_KATA', ''),
         'timeout' => (int) env('BPS_TIMEOUT', 25),                // detik per permintaan
     ],
 

@@ -374,7 +374,7 @@ class BpsApiClient
      * benar-benar PDF. Berkas ditulis ke "$tujuan.part" dulu, jadi unduhan gagal tidak meninggalkan
      * PDF rusak di folder tujuan.
      */
-    public function unduhPdf(string $url, string $tujuan, int $maksByte): void
+    public function unduhPdf(string $url, string $tujuan, int $maksByte, int $batasDetik = 240): void
     {
         $host = (string) parse_url($url, PHP_URL_HOST);
         if (parse_url($url, PHP_URL_SCHEME) !== 'https' || !preg_match('/(^|\.)bps\.go\.id$/i', $host)) {
@@ -385,7 +385,7 @@ class BpsApiClient
 
         try {
             $respons = Http::withUserAgent('PRANATA/1.0 (BPS Kota Pematangsiantar)')
-                ->timeout(240)
+                ->timeout($batasDetik)
                 ->withOptions(['sink' => $sementara])
                 ->get($url);
         } catch (ConnectionException $e) {

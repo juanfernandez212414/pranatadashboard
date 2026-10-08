@@ -6,7 +6,9 @@ use App\Models\Category;
 use App\Models\Indicator;
 use App\Services\Bps\BpsApiClient;
 use App\Services\Bps\BpsApiException;
+use App\Services\BasisPengetahuan;
 use App\Services\Bps\KonverterTabelBps;
+use App\Services\Bps\PublikasiBps;
 use App\Services\Bps\SinkronisasiBps;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -17,21 +19,18 @@ use Illuminate\Support\Facades\Auth;
  *   di Kelola Data, sehingga Lihat Data, ekspor, dashboard, dan narasi AI langsung bisa memakainya.
  * - Semua tabel dinamis otomatis menjadi indikator dan datanya diambil dari API saat dibuka
  *   (SinkronisasiBps); halaman ini menampilkan ringkasannya dan tombol untuk mengecek tabel baru sekarang.
- * - PDF publikasi disimpan ke folder basis pengetahuan. Proses Ingest tetap dijalankan sendiri dari
- *   halaman Manajemen Pengetahuan.
+ * - PDF publikasi diunduh dari API ke folder basis pengetahuan lalu langsung dilatihkan (ingest) ke layanan
+ *   AI, per publikasi atau semua publikasi baru sekaligus (PublikasiBps), tanpa unggah manual.
  */
 class DataBpsController extends Controller
 {
-    // Sama dengan batas unggah PDF manual di PengetahuanController (100 MB).
-    private const MAKS_UKURAN_PDF = 100 * 1024 * 1024;
-
     // Batas tahun per tabel agar waktu muat tetap wajar (1 permintaan ke API per 2 tahun).
     private const MAKS_TAHUN = 16;
 
     // Sama dengan halaman Tabel Dinamis situs BPS: "Hanya dapat memilih maksimal 2 data."
     private const MAKS_DATA = 2;
 
-    public function __construct(private BpsApiClient $bps, private SinkronisasiBps $sinkron)
+    public function __construct(private BpsApiClient $bps, private SinkronisasiBps $sinkron, private PublikasiBps $publikasiBps)
     {
     }
 
@@ -71,10 +70,12 @@ class DataBpsController extends Controller
                 $katalog = $this->bps->denganBatasHalaman(fn () => $this->katalogDinamis());
             } else {
                 $publikasi = $this->bps->denganBatasHalaman(fn () => $this->bps->daftarPublikasi(max(1, (int) $request->query('page', 1)), $kataKunci));
-                $tersimpan = $this->pdfTersimpan();
+                $tersimpan = PublikasiBps::pdfTersimpan();
+                $dilatih = array_flip(BasisPengetahuan::sudahDiingest());
                 foreach ($publikasi['item'] as &$pub) {
                     $pub['title'] = KonverterTabelBps::bersihkanTeks($pub['title'] ?? '', buangTerjemahan: false);
-                    $pub['tersimpan'] = $tersimpan[self::kunciNama($pub['title'])] ?? null;
+                    $pub['tersimpan'] = $tersimpan[PublikasiBps::kunciNama($pub['title'])] ?? null;
+                    $pub['dilatih'] = $pub['tersimpan'] !== null && isset($dilatih[$pub['tersimpan']]);
                     $pub['pdf'] = self::urlAman($pub['pdf'] ?? null);
                     $pub['cover'] = self::urlAman($pub['cover'] ?? null);
                 }
@@ -93,6 +94,7 @@ class DataBpsController extends Controller
             'galat' => $galat,
             'domain' => $this->bps->domain(),
             'otomatis' => $this->ringkasanOtomatis($tab === 'dinamis' && $galat === null),
+            'publikasiOtomatis' => ['sejak' => PublikasiBps::sejakBawaan(), 'kata' => PublikasiBps::kataBawaan(), 'aiSiap' => BasisPengetahuan::urlAi() !== null],
         ]);
     }
 
@@ -369,31 +371,77 @@ class DataBpsController extends Controller
         abort_unless(preg_match('/^[A-Za-z0-9_-]{1,100}$/', $id), 404);
 
         // PDF publikasi bisa puluhan MB.
-        set_time_limit(300);
+        set_time_limit(120);
 
         try {
-            // Tanpa cache: tautan unduhan PDF dari API bisa kedaluwarsa.
-            $pub = $this->bps->publikasi($id, pakaiCache: false);
-            if (!$pub || empty($pub['pdf'])) {
-                throw new BpsApiException('Publikasi ini tidak memiliki berkas PDF.');
-            }
-
-            $judul = KonverterTabelBps::bersihkanTeks($pub['title'] ?? $id, buangTerjemahan: false);
-            if ($sudahAda = $this->pdfTersimpan()[self::kunciNama($judul)] ?? null) {
-                return back()->with('success', "Publikasi \"{$judul}\" sudah ada di basis pengetahuan ({$sudahAda}), jadi tidak diunduh ulang.");
-            }
-
-            $folder = storage_path('app/public/dokumen_bps');
-            if (!is_dir($folder)) {
-                mkdir($folder, 0775, true);
-            }
-            $nama = self::namaBerkas($judul);
-            $this->bps->unduhPdf($pub['pdf'], $folder . DIRECTORY_SEPARATOR . $nama, self::MAKS_UKURAN_PDF);
+            $hasil = $this->bps->denganBatasHalaman(fn () => $this->publikasiBps->simpanDanLatih($id, batasHalaman: true));
         } catch (BpsApiException $e) {
             return back()->with('error', $e->getMessage());
         }
 
-        return back()->with('success', "PDF \"{$judul}\" tersimpan sebagai {$nama}. Buka Manajemen Pengetahuan lalu klik Ingest agar AI dapat memakainya.");
+        return $hasil['galatLatih']
+            ? back()->with('error', self::pesanPublikasi($hasil))
+            : back()->with('success', self::pesanPublikasi($hasil));
+    }
+
+    // ===========================================
+    // --- AMBIL & LATIH SEMUA PUBLIKASI BARU (DIPANGGIL BROWSER, SATU PUBLIKASI PER PERMINTAAN) ---
+    // ===========================================
+
+    // Langkah 1: daftar publikasi (sesuai tahun rilis & kata kunci) yang belum diunduh atau belum dilatihkan.
+    public function publikasiOtomatisMulai(Request $request)
+    {
+        $this->cekAkses();
+        $input = $request->validate([
+            'sejak' => 'required|integer|min:1990|max:' . now()->year,
+            'kata' => 'nullable|string|max:200',
+        ]);
+        @set_time_limit(120);
+
+        try {
+            $kandidat = $this->bps->denganBatasHalaman(fn () => $this->publikasiBps->kandidat((int) $input['sejak'], (string) ($input['kata'] ?? '')));
+        } catch (BpsApiException $e) {
+            return response()->json(['galat' => $e->getMessage()], 502);
+        }
+
+        return response()->json([
+            'jumlah' => count($kandidat),
+            'publikasi' => array_values(array_filter($kandidat, fn ($p) => !$p['dilatih'])),
+        ]);
+    }
+
+    // Langkah 2: satu publikasi diunduh dari API (bila belum ada) lalu dikirim ke layanan AI.
+    public function publikasiOtomatisSatu(string $id)
+    {
+        $this->cekAkses();
+        abort_unless(preg_match('/^[A-Za-z0-9_-]{1,100}$/', $id), 404);
+        @set_time_limit(120);
+
+        try {
+            $hasil = $this->bps->denganBatasHalaman(fn () => $this->publikasiBps->simpanDanLatih($id, batasHalaman: true));
+        } catch (BpsApiException $e) {
+            $berhenti = str_contains($e->getMessage(), 'HTTP 403') || str_contains($e->getMessage(), 'Kunci API BPS ditolak');
+
+            return response()->json(['galat' => $e->getMessage(), 'berhenti' => $berhenti], 502);
+        }
+
+        return $hasil['galatLatih']
+            // Layanan AI mati/belum diatur: publikasi berikutnya pasti gagal dilatihkan juga.
+            ? response()->json(['galat' => self::pesanPublikasi($hasil), 'berhenti' => true], 502)
+            : response()->json(['pesan' => self::pesanPublikasi($hasil)]);
+    }
+
+    private static function pesanPublikasi(array $h): string
+    {
+        $judul = "\"{$h['judul']}\"";
+
+        return match (true) {
+            $h['galatLatih'] !== null => ($h['diunduh'] ? "PDF {$judul} tersimpan ({$h['berkas']}), tetapi" : "PDF {$judul} sudah ada, tetapi")
+                . " belum bisa dilatihkan ke AI: {$h['galatLatih']} Ulangi nanti, atau klik Ingest di Manajemen Pengetahuan.",
+            $h['dilatih'] => ($h['diunduh'] ? "PDF {$judul} diunduh dari WebAPI BPS" : "PDF {$judul} sudah ada")
+                . ' dan sedang dilatihkan ke AI (ekstraksi berjalan di server AI, beberapa menit).',
+            default => "Publikasi {$judul} sudah ada di basis pengetahuan AI ({$h['berkas']}).",
+        };
     }
 
     // ===========================================
@@ -453,36 +501,5 @@ class DataBpsController extends Controller
         $dipilih = $diminta ? array_values(array_intersect($tersedia, $diminta)) : array_slice($tersedia, 0, 2);
 
         return array_slice($dipilih, 0, self::MAKS_TAHUN);
-    }
-
-    // Nama file aman, aturan sama dengan unggah manual di PengetahuanController::upload.
-    private static function namaBerkas(string $judul): string
-    {
-        $nama = preg_replace('/[^a-zA-Z0-9_\-\.]/', '_', str_replace(' ', '_', $judul));
-        $nama = trim(preg_replace('/_+/', '_', $nama), '_.');
-
-        return substr($nama !== '' ? $nama : 'Publikasi_BPS', 0, 150) . '.pdf';
-    }
-
-    // Kunci pembanding nama: huruf kecil dan angka saja. PDF lama di basis pengetahuan dinamai dari
-    // judul publikasi dengan gaya berbeda-beda ("..._(IHK)_...", "Pematang_Siantar"/"Pematangsiantar"),
-    // jadi pembandingan tanpa tanda baca mencegah publikasi yang sama diunduh dan di-ingest dua kali.
-    private static function kunciNama(string $nama): string
-    {
-        return preg_replace('/[^a-z0-9]/', '', strtolower(preg_replace('/\.pdf$/i', '', $nama)));
-    }
-
-    /** [kunciNama => nama file] untuk PDF yang sudah ada di folder basis pengetahuan. */
-    private function pdfTersimpan(): array
-    {
-        $folder = storage_path('app/public/dokumen_bps');
-        $hasil = [];
-        foreach (is_dir($folder) ? scandir($folder) : [] as $berkas) {
-            if (strtolower(pathinfo($berkas, PATHINFO_EXTENSION)) === 'pdf') {
-                $hasil[self::kunciNama($berkas)] = $berkas;
-            }
-        }
-
-        return $hasil;
     }
 }
