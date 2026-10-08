@@ -1,4 +1,3 @@
-{-- Komponen kerangka dasar (layout) HTML untuk halaman Pengguna Biasa. --}
 <!DOCTYPE html>
 <html lang="id">
 

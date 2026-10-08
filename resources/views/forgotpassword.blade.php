@@ -1,4 +1,3 @@
-{-- Halaman form untuk meminta link reset password. --}
 <!DOCTYPE html>
 <html lang="id">
 

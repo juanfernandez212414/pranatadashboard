@@ -1,4 +1,3 @@
-{-- Halaman antarmuka untuk manajemen data (kategori, subjek, indikator). --}
 <x-adminlayout title="Kelola Data - admin PRANATA">
     <div x-data="kelolaData()" x-init="
         const urlParams = new URLSearchParams(window.location.search);

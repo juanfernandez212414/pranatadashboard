@@ -1,4 +1,3 @@
-{-- View untuk mengekspor (cetak) data indikator ke format PDF. --}
 <!DOCTYPE html>
 <html lang="en">
 

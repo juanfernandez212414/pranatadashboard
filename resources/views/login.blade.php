@@ -1,4 +1,4 @@
-{-- Halaman utama untuk login pengguna. --}
+{{-- Halaman utama untuk login pengguna. --}}
 <!DOCTYPE html>
 <html lang="id">
 

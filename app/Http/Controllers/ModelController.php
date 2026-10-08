@@ -38,36 +38,40 @@ class ModelController extends Controller
 
         // DAFTAR MODEL AI TERMASUK 3 VARIAN GEMINI
         $models = [
-
-    'gemini-3.6-flash' => [
+    'gemini-3-flash-preview' => [
         'name' => 'Gemini 3.6 Flash',
         'description' => 'Model Gemini 3.6 Flash terbaru dengan API interactions.',
         'provider' => 'Google',
-        'logo' => asset('images/Gemini.png')
+        'logo' => asset('images/Gemini.png'),
+        'api_model' => 'gemini-3-flash-preview',
     ],
     'gemini-3.5-flash' => [
         'name' => 'Gemini 3.5 Flash',
         'description' => 'Model Gemini 3.5 Flash dengan API interactions.',
         'provider' => 'Google',
-        'logo' => asset('images/Gemini.png')
+        'logo' => asset('images/Gemini.png'),
+        'api_model' => 'gemini-3.5-flash',
     ],
-    'gemini-3-flash-preview' => [
+    'gemini-3-flash' => [
         'name' => 'Gemini 3 Flash',
         'description' => 'Model Gemini 3 Flash (Preview) terbaru. Cepat dan efisien.',
         'provider' => 'Google',
-        'logo' => asset('images/Gemini.png')
+        'logo' => asset('images/Gemini.png'),
+        'api_model' => 'gemini-3-flash-preview',
     ],
     'meta-llama/Llama-3.3-70B-Instruct' => [
         'name' => 'Llama 3.3 (70B)',
         'description' => 'Model Produksi Stabil dari Meta.',
         'provider' => 'Meta',
-        'logo' => asset('images/Meta.png')
+        'logo' => asset('images/Meta.png'),
+        'api_model' => 'meta-llama/Llama-3.3-70B-Instruct',
     ],
     'openai/gpt-oss-120b' => [
         'name' => 'GPT-OSS (120B)',
         'description' => 'Model open-source terbesar dari OpenAI.',
         'provider' => 'OpenAI',
-        'logo' => asset('images/GPT.png')
+        'logo' => asset('images/GPT.png'),
+        'api_model' => 'openai/gpt-oss-120b',
     ],
 ];
 
@@ -103,12 +107,22 @@ class ModelController extends Controller
             'active_model' => 'required|string'
         ]);
 
+        // Mapping key ke nama ramah pengguna
+        $modelNames = [
+            'gemini-3-flash-preview'            => 'Gemini 3.6 Flash',
+            'gemini-3.5-flash'                  => 'Gemini 3.5 Flash',
+            'gemini-3-flash'                    => 'Gemini 3 Flash',
+            'meta-llama/Llama-3.3-70B-Instruct' => 'Llama 3.3 (70B)',
+            'openai/gpt-oss-120b'               => 'GPT-OSS (120B)',
+        ];
+        $modelName = $modelNames[$request->active_model] ?? $request->active_model;
+
         Setting::updateOrCreate(
             ['user_id' => $user->id, 'key' => 'active_ai_model'],
             ['value' => $request->active_model]
         );
 
-        return redirect()->back()->with('success', 'Model Evaluasi berhasil diganti ke: ' . $request->active_model);
+        return redirect()->back()->with('success', 'Model berhasil diganti ke: ' . $modelName);
     }
 
     /**

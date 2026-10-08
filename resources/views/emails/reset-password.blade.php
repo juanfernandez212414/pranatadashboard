@@ -1,4 +1,3 @@
-{-- Template email yang dikirim untuk reset password. --}
 <!DOCTYPE html>
 <html lang="id">
 

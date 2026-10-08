@@ -196,11 +196,14 @@ class DataController extends Controller
             }
             // --- AKHIR KODE TRANSFORMASI ---
 
+            Log::info('DEBUG storeIndicator - Auth::id(): ' . (Auth::id() ?? 'NULL') . ' | Auth::check(): ' . (Auth::check() ? 'true' : 'false'));
+
             Indicator::create([
                 'subject_id' => $validated['subject_id'],
-                'name' => $validated['name'],
-                'unit' => $validated['unit'],
-                'data' => $tableData,
+                'user_id'    => Auth::id(), // Audit trail: catat siapa yang membuat
+                'name'       => $validated['name'],
+                'unit'       => $validated['unit'],
+                'data'       => $tableData,
             ]);
 
             return back()->with('success', 'Indikator tabel berhasil ditambahkan.');
@@ -534,6 +537,7 @@ class DataController extends Controller
 
             Indicator::create([
                 'subject_id' => $request->subject_id,
+                'user_id'    => Auth::id(), // Audit trail: catat siapa yang mengimpor
                 'name'       => $request->name,
                 'unit'       => $request->unit,
                 'data'       => $tableData,

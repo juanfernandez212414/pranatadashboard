@@ -1,4 +1,4 @@
-{-- Halaman form untuk memasukkan password baru. --}
+{{-- Halaman form untuk memasukkan password baru. --}}
 <!DOCTYPE html>
 <html lang="id">
 

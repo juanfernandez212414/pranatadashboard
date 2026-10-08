@@ -1,4 +1,4 @@
-{-- Halaman form registrasi pengguna baru. --}
+{{-- Halaman form registrasi pengguna baru. --}}
 <!DOCTYPE html>
 <html lang="id">
 

@@ -874,6 +874,16 @@ class DashboardController extends Controller
         $activeSetting = Setting::where('user_id', auth()->id())->where('key', 'active_ai_model')->first();
         // Default ke Llama 3.3 jika setting belum ada
         $selectedModel = $activeSetting ? $activeSetting->value : 'llama-3.3-70b-versatile';
+
+        // Mapping key tampilan ke API model yang sebenarnya
+        $modelApiMap = [
+            'gemini-3-flash-preview'          => 'gemini-3-flash-preview',
+            'gemini-3.5-flash'                => 'gemini-3.5-flash',
+            'gemini-3-flash'                  => 'gemini-3-flash-preview', // Gemini 3 pakai API yang sama
+            'meta-llama/Llama-3.3-70B-Instruct' => 'meta-llama/Llama-3.3-70B-Instruct',
+            'openai/gpt-oss-120b'             => 'openai/gpt-oss-120b',
+        ];
+        $selectedModel = $modelApiMap[$selectedModel] ?? $selectedModel;
         // -----------------------------------------
 
         // Cek URL API dari .env

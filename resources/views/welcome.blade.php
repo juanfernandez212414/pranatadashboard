@@ -1,4 +1,4 @@
-{-- Halaman sambutan/landing page aplikasi. --}
+{{-- Halaman sambutan/landing page aplikasi. --}}
 <!DOCTYPE html>
 <html lang="id">
 
