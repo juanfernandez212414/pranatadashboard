@@ -1,0 +1,110 @@
+{
+    "status": "OK",
+    "data-availability": "available",
+    "data": [
+        {
+            "page": 1,
+            "pages": 1,
+            "per_page": 1,
+            "count": 1,
+            "total": 1
+        },
+        {
+            "status": 200,
+            "condition": "OK",
+            "message": "-",
+            "created": "2026-09-28 10:15:00",
+            "induk": "1273000",
+            "wilayah": "Pematangsiantar",
+            "data": [
+                {
+                    "id_tabel": "UFpWMmJZOVZlZTJnc1pXaHhDV1hPQT09",
+                    "judul": "Luas Daerah dan Jumlah Kelurahan Menurut Kecamatan di Kota Pematangsiantar",
+                    "judul_en": "Total Area and Number of Villages by Subdistrict",
+                    "kode_tabel": "1.1.2",
+                    "tahun_data": 2025,
+                    "kolom": {
+                        "l1": {
+                            "nama_variabel": "Luas Wilayah",
+                            "nama_variabel_en": "Total Area",
+                            "satuan": "km²",
+                            "satuan_en": "km²",
+                            "tipe_data": "desimal"
+                        },
+                        "l2": {
+                            "nama_variabel": "Jumlah Kelurahan",
+                            "nama_variabel_en": "Number of Villages",
+                            "satuan": "Kelurahan",
+                            "satuan_en": "Villages",
+                            "tipe_data": "bulat"
+                        }
+                    },
+                    "data": [
+                        {
+                            "kode_wilayah": "1273010",
+                            "label": "SIANTAR MARIHAT",
+                            "label_raw": "Siantar Marihat",
+                            "variables": {
+                                "l1": {
+                                    "value": "7,825",
+                                    "value_raw": 7.825
+                                },
+                                "l2": {
+                                    "value": "8",
+                                    "value_raw": 8
+                                }
+                            }
+                        },
+                        {
+                            "kode_wilayah": "1273011",
+                            "label": "SIANTAR MARIMBUN",
+                            "label_raw": "Siantar Marimbun",
+                            "variables": {
+                                "l1": {
+                                    "value": "18,006",
+                                    "value_raw": 18.006
+                                },
+                                "l2": {
+                                    "value": "6",
+                                    "value_raw": 6
+                                }
+                            }
+                        },
+                        {
+                            "kode_wilayah": "1273020",
+                            "label": "SIANTAR SELATAN",
+                            "label_raw": "Siantar Selatan",
+                            "variables": {
+                                "l1": {
+                                    "value": "2,020",
+                                    "value_raw": 2.02
+                                },
+                                "l2": {
+                                    "value": "6",
+                                    "value_raw": 6
+                                }
+                            }
+                        },
+                        {
+                            "kode_wilayah": "1273000",
+                            "label": "PEMATANGSIANTAR",
+                            "label_raw": "Pematangsiantar",
+                            "variables": {
+                                "l1": {
+                                    "value": "79,971",
+                                    "value_raw": 79.971
+                                },
+                                "l2": {
+                                    "value": "53",
+                                    "value_raw": 53
+                                }
+                            }
+                        }
+                    ],
+                    "catatan": "",
+                    "sumber": "Bagian Tata Pemerintahan Setda Kota Pematangsiantar"
+                }
+            ]
+        }
+    ]
+}

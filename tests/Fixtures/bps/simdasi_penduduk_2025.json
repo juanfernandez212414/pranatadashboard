@@ -1,0 +1,125 @@
+{
+    "status": "OK",
+    "data-availability": "available",
+    "data": [
+        {
+            "page": 1,
+            "pages": 1,
+            "per_page": 1,
+            "count": 1,
+            "total": 1
+        },
+        {
+            "status": 200,
+            "condition": "OK",
+            "message": "-",
+            "created": "2026-09-28 10:15:00",
+            "induk": "1273000",
+            "wilayah": "Pematangsiantar",
+            "data": [
+                {
+                    "id_tabel": "c2ltZGFzaS9wZW5kdWR1aw==",
+                    "judul": "Jumlah Penduduk Menurut Kecamatan dan Jenis Kelamin di Kota Pematangsiantar (Jiwa)",
+                    "kode_tabel": "3.1.10",
+                    "tahun_data": 2025,
+                    "kolom": {
+                        "pdd": {
+                            "nama_variabel": "Jumlah Penduduk",
+                            "satuan": "Jiwa",
+                            "turunan": {
+                                "pl": {
+                                    "nama_variabel": "Laki-laki",
+                                    "satuan": "Jiwa"
+                                },
+                                "pp": {
+                                    "nama_variabel": "Perempuan",
+                                    "satuan": "Jiwa"
+                                },
+                                "pj": {
+                                    "nama_variabel": "Jumlah",
+                                    "satuan": "Jiwa"
+                                }
+                            }
+                        }
+                    },
+                    "data": [
+                        {
+                            "kode_wilayah": "1273010",
+                            "label": "Siantar Marihat",
+                            "variables": {
+                                "pl": {
+                                    "value": "10 701",
+                                    "value_raw": "10701"
+                                },
+                                "pp": {
+                                    "value": "10 990",
+                                    "value_raw": "10990"
+                                },
+                                "pj": {
+                                    "value": "21 691",
+                                    "value_raw": "21691"
+                                }
+                            }
+                        },
+                        {
+                            "kode_wilayah": "1273011",
+                            "label": "Siantar Marimbun",
+                            "variables": {
+                                "pl": {
+                                    "value": "9 154",
+                                    "value_raw": "9154"
+                                },
+                                "pp": {
+                                    "value": "9 360",
+                                    "value_raw": "9360"
+                                },
+                                "pj": {
+                                    "value": "18 514",
+                                    "value_raw": "18514"
+                                }
+                            }
+                        },
+                        {
+                            "kode_wilayah": "1273020",
+                            "label": "Siantar Selatan",
+                            "variables": {
+                                "pl": {
+                                    "value": "8 022",
+                                    "value_raw": "8022"
+                                },
+                                "pp": {
+                                    "value": "8 795",
+                                    "value_raw": "8795"
+                                },
+                                "pj": {
+                                    "value": "16 817",
+                                    "value_raw": "16817"
+                                }
+                            }
+                        },
+                        {
+                            "kode_wilayah": "1273000",
+                            "label": "Pematangsiantar",
+                            "variables": {
+                                "pl": {
+                                    "value": "130 988",
+                                    "value_raw": "130988"
+                                },
+                                "pp": {
+                                    "value": "137 122",
+                                    "value_raw": "137122"
+                                },
+                                "pj": {
+                                    "value": "268 110",
+                                    "value_raw": "268110"
+                                }
+                            }
+                        }
+                    ],
+                    "catatan": "Angka proyeksi penduduk",
+                    "sumber": "Proyeksi Penduduk Interim 2020-2023"
+                }
+            ]
+        }
+    ]
+}

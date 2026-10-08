@@ -4,6 +4,7 @@
         $rute = $area['rute'];
         $daftarTab = [
             'dinamis' => ['label' => 'Tabel Dinamis', 'url' => route($rute . 'databps')],
+            'sinkron' => ['label' => 'Sinkronisasi Semua Tabel', 'url' => route($rute . 'databps', ['tab' => 'sinkron'])],
             'publikasi' => ['label' => 'Publikasi', 'url' => route($rute . 'databps', ['tab' => 'publikasi'])],
         ];
     @endphp
@@ -12,7 +13,8 @@
         <div>
             <h1 class="text-2xl md:text-3xl font-bold text-gray-900 mb-1">Data API BPS</h1>
             <p class="text-sm md:text-base text-gray-500">
-                Ambil tabel dinamis dan publikasi BPS Kota Pematangsiantar (domain {{ $domain }}) langsung dari WebAPI BPS.
+                Ambil tabel (tabel dinamis, tabel publikasi SIMDASI, tabel statis) dan publikasi BPS Kota Pematangsiantar
+                (domain {{ $domain }}) langsung dari WebAPI BPS.
             </p>
         </div>
 

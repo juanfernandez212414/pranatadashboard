@@ -29,8 +29,10 @@ class BpsApiClient
     private ?string $kunci;
     private string $urlDasar;
     private string $domain;
+    private string $wilayahSimdasi;
     private int $cacheMenit;
     private int $timeout;
+    private ?int $segarSejak = null;
 
     public function __construct()
     {
@@ -38,6 +40,8 @@ class BpsApiClient
         $this->kunci = filled($c['key'] ?? null) ? trim($c['key']) : null;
         $this->urlDasar = rtrim($c['url'] ?? 'https://webapi.bps.go.id/v1/api', '/');
         $this->domain = (string) ($c['domain'] ?? '1273');
+        // SIMDASI memakai kode wilayah MFD 7 digit: kode domain kabupaten/kota diikuti "000".
+        $this->wilayahSimdasi = filled($c['wilayah_simdasi'] ?? null) ? (string) $c['wilayah_simdasi'] : str_pad($this->domain, 7, '0');
         $this->cacheMenit = (int) ($c['cache_menit'] ?? 360);
         $this->timeout = (int) ($c['timeout'] ?? 25);
     }
@@ -50,6 +54,21 @@ class BpsApiClient
     public function domain(): string
     {
         return $this->domain;
+    }
+
+    public function wilayahSimdasi(): string
+    {
+        return $this->wilayahSimdasi;
+    }
+
+    /**
+     * Respons cache yang diambil sebelum $waktu (timestamp) tidak dipakai, jadi permintaannya dikirim ulang
+     * ke API. Dipakai saat memperbarui indikator agar datanya (termasuk tahun baru) benar-benar terbaru;
+     * permintaan yang sama berikutnya dalam satu proses tetap memakai cache yang baru diisi. null = normal.
+     */
+    public function segarSejak(?int $waktu): void
+    {
+        $this->segarSejak = $waktu;
     }
 
     // ===========================================
@@ -82,13 +101,16 @@ class BpsApiClient
         $hasil = [];
         $tertunda = [];
         foreach ($permintaan as $kunci => [$jalur, $parameter]) {
-            ksort($parameter);
-            $kunciCache = 'bps-api:' . md5($jalur . '?' . http_build_query($parameter));
+            $urut = $parameter;
+            ksort($urut);
+            $kunciCache = 'bps-api:' . md5($jalur . '?' . http_build_query($urut));
 
-            if ($pakaiCache && ($tersimpan = Cache::get($kunciCache)) !== null) {
-                $hasil[$kunci] = $tersimpan;
+            $tersimpan = $pakaiCache ? Cache::get($kunciCache) : null;
+            if (is_array($tersimpan) && isset($tersimpan['waktu']) && array_key_exists('isi', $tersimpan)
+                && ($this->segarSejak === null || $tersimpan['waktu'] >= $this->segarSejak)) {
+                $hasil[$kunci] = $tersimpan['isi'];
             } else {
-                $tertunda[$kunci] = [$this->urlDasar . '/' . trim($jalur, '/'), $parameter + ['key' => $this->kunci], $kunciCache];
+                $tertunda[$kunci] = [...$this->alamat($jalur, $parameter), $kunciCache];
             }
         }
 
@@ -106,12 +128,39 @@ class BpsApiClient
             foreach ($tertunda as $kunci => [, , $kunciCache]) {
                 $hasil[$kunci] = $this->olah($respons[(string) $kunci] ?? null);
                 if ($pakaiCache && $hasil[$kunci] !== null) {
-                    Cache::put($kunciCache, $hasil[$kunci], now()->addMinutes($this->cacheMenit));
+                    Cache::put($kunciCache, ['waktu' => now()->getTimestamp(), 'isi' => $hasil[$kunci]], now()->addMinutes($this->cacheMenit));
                 }
             }
         }
 
         return array_map(fn ($kunci) => $hasil[$kunci], array_combine(array_keys($permintaan), array_keys($permintaan)));
+    }
+
+    /**
+     * [url, query] satu permintaan. Layanan interoperabilitas (SIMDASI) ditulis bergaya jalur seperti
+     * contoh di dokumentasi (.../simdasi/id/25/tahun/2024/id_tabel/.../wilayah/1273000/key/.../), layanan
+     * lain memakai query string.
+     */
+    private function alamat(string $jalur, array $parameter): array
+    {
+        $url = $this->urlDasar . '/' . trim($jalur, '/');
+        if (!str_starts_with(trim($jalur, '/'), 'interoperabilitas/')) {
+            return [$url, $parameter + ['key' => $this->kunci]];
+        }
+
+        foreach ($parameter + ['key' => $this->kunci] as $nama => $nilai) {
+            $url .= '/' . rawurlencode((string) $nama) . '/' . rawurlencode((string) $nilai);
+        }
+
+        return [$url . '/', []];
+    }
+
+    /** Alamat lengkap tanpa kunci API (kunci disamarkan), untuk perintah pemeriksaan bps:cek. */
+    public function alamatTersamar(string $jalur, array $parameter = []): string
+    {
+        [$url, $query] = $this->alamat($jalur, $parameter);
+
+        return $this->samarkan($query ? $url . '?' . http_build_query($query) : $url);
     }
 
     // Respons dari pool berupa Response, atau objek exception bila koneksi gagal.
@@ -142,6 +191,10 @@ class BpsApiClient
         }
 
         if (($json['status'] ?? null) === 'Error') {
+            // Layanan interoperabilitas (SIMDASI) membalas "Error" tanpa pesan bila datanya tidak ada.
+            if (($json['data-availability'] ?? '') === 'not-available' && blank($json['message'] ?? null)) {
+                return null;
+            }
             $pesan = is_string($json['message'] ?? null) ? $json['message'] : 'tanpa keterangan';
             if (stripos($pesan, 'key') !== false && stripos($pesan, 'not allowed') !== false) {
                 throw new BpsApiException('Kunci API BPS ditolak. Periksa kembali BPS_API_KEY di file .env.');
@@ -300,6 +353,90 @@ class BpsApiClient
         $a['datacontent'] = ($a['datacontent'] ?? []) + ($b['datacontent'] ?? []);
 
         return $a;
+    }
+
+    // ===========================================
+    // --- TABEL STATIS ---
+    // ===========================================
+
+    /**
+     * Semua tabel statis domain ini: [['table_id', 'title', 'subj_id', 'subj', 'updt_date', ...], ...].
+     * Jumlahnya bisa ratusan, jadi diminta 100 per halaman (bila API mengabaikan perpage, jumlah halaman
+     * dari meta tetap dipakai) dan paling banyak 100 halaman.
+     */
+    public function daftarTabelStatis(): array
+    {
+        return $this->daftarSemua('statictable', ['perpage' => 100], 100);
+    }
+
+    /** Detail satu tabel statis; isi tabelnya berupa HTML di kunci 'table'. */
+    public function tabelStatis(int $id): ?array
+    {
+        $json = $this->ambil('view', ['model' => 'statictable', 'lang' => 'ind', 'domain' => $this->domain, 'id' => $id]);
+
+        return is_array($json['data'] ?? null) ? $json['data'] : null;
+    }
+
+    /** Subjek lama (model=subject): sub_id => ['subjek' => ..., 'kategori' => ...], untuk mengelompokkan tabel statis. */
+    public function subjekLama(): array
+    {
+        $hasil = [];
+        foreach ($this->daftarSemua('subject') as $s) {
+            $hasil[(int) ($s['sub_id'] ?? 0)] = ['subjek' => (string) ($s['title'] ?? ''), 'kategori' => (string) ($s['subcat'] ?? '')];
+        }
+
+        return $hasil;
+    }
+
+    // ===========================================
+    // --- SIMDASI (TABEL PUBLIKASI DALAM ANGKA) ---
+    // ===========================================
+
+    /**
+     * Daftar tabel SIMDASI wilayah ini, yaitu tabel-tabel publikasi "... Dalam Angka":
+     * [['id_tabel', 'judul', 'kode_tabel', 'ketersediaan_tahun' => [2021, ...], 'bab', 'subject', ...], ...].
+     */
+    public function daftarSimdasi(): array
+    {
+        $json = $this->ambil('interoperabilitas/datasource/simdasi/id/23', ['wilayah' => $this->wilayahSimdasi]);
+
+        return self::cariDaftar($json, 'id_tabel');
+    }
+
+    /**
+     * Detail satu tabel SIMDASI untuk beberapa tahun sekaligus: [tahun => respons, ...]. Tahun yang tidak
+     * berisi data dilewati.
+     */
+    public function tabelSimdasi(string $idTabel, array $tahun): array
+    {
+        $permintaan = [];
+        foreach (array_unique(array_map('intval', $tahun)) as $t) {
+            $permintaan[$t] = ['interoperabilitas/datasource/simdasi/id/25', ['tahun' => $t, 'id_tabel' => $idTabel, 'wilayah' => $this->wilayahSimdasi]];
+        }
+
+        return array_filter($this->ambilBanyak($permintaan));
+    }
+
+    /**
+     * Daftar butir (array berisi array) pertama di dalam respons yang butirnya memiliki $kunciWajib.
+     * Struktur balasan layanan interoperabilitas berlapis ({data: [meta, {data: [...]}]}), jadi dicari
+     * menelusuri isinya, bukan dengan jalur tetap.
+     */
+    public static function cariDaftar(mixed $json, string $kunciWajib): array
+    {
+        if (!is_array($json)) {
+            return [];
+        }
+        if (array_is_list($json) && $json !== [] && is_array($json[0]) && array_key_exists($kunciWajib, $json[0])) {
+            return $json;
+        }
+        foreach ($json as $isi) {
+            if (is_array($isi) && ($daftar = self::cariDaftar($isi, $kunciWajib)) !== []) {
+                return $daftar;
+            }
+        }
+
+        return [];
     }
 
     // ===========================================

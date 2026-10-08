@@ -46,6 +46,7 @@ return [
         'key' => env('BPS_API_KEY'),
         'url' => env('BPS_API_URL', 'https://webapi.bps.go.id/v1/api'),
         'domain' => env('BPS_DOMAIN', '1273'),                    // 1273 = Kota Pematangsiantar
+        'wilayah_simdasi' => env('BPS_SIMDASI_WILAYAH'),          // kode MFD 7 digit; kosong = domain + "000" (1273000)
         'cache_menit' => (int) env('BPS_CACHE_MENIT', 360),       // lama respons API disimpan di cache
         'timeout' => (int) env('BPS_TIMEOUT', 25),                // detik per permintaan
     ],

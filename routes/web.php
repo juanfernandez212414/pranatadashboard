@@ -106,12 +106,15 @@ Route::middleware(['auth', 'area.role'])->group(function () {
     Route::delete('/admin/indicators/{indicator}', [DataController::class, 'destroyIndicator'])->name('admin.indicators.destroy');
     Route::post('/admin/indicators/import', [DataController::class, 'importIndicator'])->name('admin.indicators.import');
 
-    // Data API BPS (tabel dinamis & publikasi dari WebAPI BPS)
+    // Data API BPS (tabel dinamis, sinkronisasi semua tabel & publikasi dari WebAPI BPS)
     Route::get('/admin/data-bps', [DataBpsController::class, 'index'])->name('admin.databps');
     Route::get('/admin/data-bps/dinamis/{var}/pilihan', [DataBpsController::class, 'pilihanDinamis'])->whereNumber('var')->name('admin.databps.dinamis.pilihan');
     Route::get('/admin/data-bps/dinamis/hasil', [DataBpsController::class, 'hasilDinamis'])->name('admin.databps.dinamis.hasil');
     Route::post('/admin/data-bps/tabel', [DataBpsController::class, 'simpanTabel'])->name('admin.databps.tabel.simpan');
     Route::post('/admin/data-bps/publikasi/{id}', [DataBpsController::class, 'simpanPublikasi'])->name('admin.databps.publikasi.simpan');
+    Route::get('/admin/data-bps/sinkron/katalog', [DataBpsController::class, 'katalogSinkron'])->name('admin.databps.sinkron.katalog');
+    Route::post('/admin/data-bps/sinkron/impor', [DataBpsController::class, 'imporSinkron'])->name('admin.databps.sinkron.impor');
+    Route::post('/admin/data-bps/sinkron/perbarui/{indicator}', [DataBpsController::class, 'perbaruiSinkron'])->whereNumber('indicator')->name('admin.databps.sinkron.perbarui');
 
     // Manajemen Pengguna
     Route::get('/admin/pengguna', [UserController::class, 'index'])->name('admin.pengguna');
@@ -174,12 +177,15 @@ Route::middleware(['auth', 'area.role'])->group(function () {
         Route::delete('/indicators/{indicator}', [DataController::class, 'destroyIndicator'])->name('indicators.destroy');
         Route::post('/indicators/import', [DataController::class, 'importIndicator'])->name('indicators.import');
 
-        // Data API BPS (tabel dinamis & publikasi dari WebAPI BPS)
+        // Data API BPS (tabel dinamis, sinkronisasi semua tabel & publikasi dari WebAPI BPS)
         Route::get('/data-bps', [DataBpsController::class, 'index'])->name('databps');
         Route::get('/data-bps/dinamis/{var}/pilihan', [DataBpsController::class, 'pilihanDinamis'])->whereNumber('var')->name('databps.dinamis.pilihan');
         Route::get('/data-bps/dinamis/hasil', [DataBpsController::class, 'hasilDinamis'])->name('databps.dinamis.hasil');
         Route::post('/data-bps/tabel', [DataBpsController::class, 'simpanTabel'])->name('databps.tabel.simpan');
         Route::post('/data-bps/publikasi/{id}', [DataBpsController::class, 'simpanPublikasi'])->name('databps.publikasi.simpan');
+        Route::get('/data-bps/sinkron/katalog', [DataBpsController::class, 'katalogSinkron'])->name('databps.sinkron.katalog');
+        Route::post('/data-bps/sinkron/impor', [DataBpsController::class, 'imporSinkron'])->name('databps.sinkron.impor');
+        Route::post('/data-bps/sinkron/perbarui/{indicator}', [DataBpsController::class, 'perbaruiSinkron'])->whereNumber('indicator')->name('databps.sinkron.perbarui');
 
         // Konfigurasi Model AI (Sesuai Sidebar)
         Route::get('/model/check-status', [ModelController::class, 'checkStatus'])->name('model.checkStatus');
