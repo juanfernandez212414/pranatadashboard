@@ -361,18 +361,14 @@ it('mengambil data dari API saat Lihat Data dibuka dan saat diekspor', function 
 });
 
 it('mengirim data terbaru dari API ke layanan narasi AI', function () {
-    $_SERVER['HUGGINGFACE_API_URL'] = $_ENV['HUGGINGFACE_API_URL'] = 'https://ai-uji.test';
+    config(['services.huggingface.url' => 'https://ai-uji.test']);
     palsukanBps(['ai-uji.test' => fn () => Http::response(['narrative_result' => 'Narasi uji'])]);
     $this->actingAs($this->admin)->get('/admin/dashboard');
     $penduduk = Indicator::where('bps_table_id', '31')->sole();
 
-    try {
-        $this->actingAs($this->pj)->postJson('/penanggungjawab/dashboard/generate-narrative', ['indicator_id' => $penduduk->id])
-            ->assertOk()
-            ->assertJsonPath('narrative', 'Narasi uji');
-    } finally {
-        unset($_SERVER['HUGGINGFACE_API_URL'], $_ENV['HUGGINGFACE_API_URL']);
-    }
+    $this->actingAs($this->pj)->postJson('/penanggungjawab/dashboard/generate-narrative', ['indicator_id' => $penduduk->id])
+        ->assertOk()
+        ->assertJsonPath('narrative', 'Narasi uji');
 
     Http::assertSent(fn (Request $r) => str_contains($r->url(), 'ai-uji.test/generate-narrative')
         && array_column($r['data_json']['headers'], 'value') === ['Kecamatan', '2020', '2023', '2024']);

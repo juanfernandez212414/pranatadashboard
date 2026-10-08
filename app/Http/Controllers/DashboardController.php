@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\File;
 use App\Models\Category;
 use App\Models\Subject;
 use App\Models\Indicator;
+use App\Models\Narrative;
 use App\Models\Setting;
 use App\Services\Bps\SinkronisasiBps;
 use Illuminate\Support\Facades\Http;
@@ -24,23 +25,22 @@ class DashboardController extends Controller
      */
     public function index(Request $request, SinkronisasiBps $sinkron)
     {
-        $user = Auth::user();
+        // Dashboard Pengguna terbuka untuk publik: tamu (belum login) memakai tampilan Pengguna.
+        // (int): role_id bisa terbaca sebagai teks dari database, sedangkan match/in_array di bawah ketat.
+        $roleId = Auth::check() ? (int) Auth::user()->role_id : null;
 
         // Tabel dinamis BPS yang baru muncul di API otomatis menjadi indikator (paling sering sekali per
         // BPS_KATALOG_MENIT; bila API bermasalah dashboard tetap tampil dengan data yang ada). Hanya saat
-        // Admin/PJ membuka dashboard, agar Pengguna tidak pernah menunggu daftar tabel dari API.
-        if (in_array($user->role_id, [1, 3])) {
+        // Admin/PJ membuka dashboard, agar Pengguna dan tamu tidak pernah menunggu daftar tabel dari API.
+        if (in_array($roleId, [1, 3], true)) {
             $sinkron->cerminkanKatalogDiam();
         }
 
-        // 1. Logika penentuan path sudah benar
-        if ($user->role_id == 1) {
-            $viewPath = 'admin.dashboard';
-        } elseif ($user->role_id == 3) {
-            $viewPath = 'penanggungjawab.dashboard';
-        } else {
-            $viewPath = 'pengguna.dashboard';
-        }
+        $viewPath = match ($roleId) {
+            1 => 'admin.dashboard',
+            3 => 'penanggungjawab.dashboard',
+            default => 'pengguna.dashboard',
+        };
 
         $categories = Category::all();
 
@@ -69,8 +69,6 @@ class DashboardController extends Controller
             $totalSubjects = 0;
             $totalIndicators = 0;
         }
-        $recentIndicators = (clone $statsIndicatorQuery)->with('subject')
-            ->orderBy('updated_at', 'desc')->take(5)->get();
 
         // ... (Bagian 2: Persiapan Filter Dropdown - sudah benar) ...
         $subjectsForFilter = collect();
@@ -83,7 +81,8 @@ class DashboardController extends Controller
 
         // HANYA muat daftar Indikator JIKA Subjek sudah dipilih di Dropdown
         if ($selectedSubjectId) {
-            $indicatorsForFilter = Indicator::where('subject_id', $selectedSubjectId)->orderBy('name')->get();
+            // Dropdown hanya butuh id & nama, tanpa kolom data JSON yang besar.
+            $indicatorsForFilter = Indicator::where('subject_id', $selectedSubjectId)->orderBy('name')->get(['id', 'subject_id', 'name']);
         }
         // ... (Bagian 3: Persiapan Visualisasi - sudah benar) ...
         $indicatorsWithVisualization = []; // Set default kosong
@@ -92,10 +91,13 @@ class DashboardController extends Controller
 
         // HANYA ambil data visualisasi JIKA Indikator sudah benar-benar dipilih
         if ($selectedIndicatorId) {
-            // Indikator tabel dinamis BPS: data (seluruh tahun) diambil dari API saat dibuka, lalu disimpan
-            // agar filter AJAX, Lihat Data, dan narasi AI memakai data yang sama.
+            // Indikator tabel dinamis BPS yang belum berdata diambil dari API saat dibuka pengguna yang login,
+            // lalu disimpan agar filter AJAX, Lihat Data, dan narasi AI memakai data yang sama. Tamu hanya
+            // membaca database (diisi Impor Semua dan jadwal malam), agar kunjungan publik tidak memicu API.
             if ($indikatorDipilih = Indicator::find($selectedIndicatorId)) {
-                $galatApiBps = $sinkron->pastikanSegar($indikatorDipilih);
+                if (Auth::check()) {
+                    $galatApiBps = $sinkron->pastikanSegar($indikatorDipilih);
+                }
                 $dataApiKosong = $indikatorDipilih->bps_source !== null && empty($indikatorDipilih->data);
             }
             $indicatorQuery = Indicator::query()->where('id', $selectedIndicatorId);
@@ -109,7 +111,6 @@ class DashboardController extends Controller
             'totalCategories' => $totalCategories,
             'totalSubjects' => $totalSubjects,
             'totalIndicators' => $totalIndicators,
-            'recentIndicators' => $recentIndicators,
             'subjectsForFilter' => $subjectsForFilter,
             'indicatorsForFilter' => $indicatorsForFilter,
             'selectedSubjectId' => $selectedSubjectId ? intval($selectedSubjectId) : null,
@@ -139,7 +140,7 @@ class DashboardController extends Controller
      */
     private function prepareIndicatorsForVisualization($indicatorQuery)
     {
-        $indicators = (clone $indicatorQuery)->with('subject')->get();
+        $indicators = (clone $indicatorQuery)->with(['subject', 'narrative'])->get();
         $result = [];
         foreach ($indicators as $indicator) {
             $parsedData = $this->parseIndicatorData($indicator);
@@ -169,6 +170,7 @@ class DashboardController extends Controller
                     'filters' => $parsedData['filters'],
                     'visualization_config' => $parsedData['config'],
                     'narrative' => $indicator->narrative->content ?? '',
+                    'narasi_info' => self::infoNarasi($indicator),
                     // Tabel dinamis BPS: waktu data diambil, dan jenis grafik yang disarankan BPS (graph_name).
                     'sumber_bps' => $indicator->bps_source ? [
                         'diperbarui' => $indicator->bps_synced_at?->timezone('Asia/Jakarta')->format('d-m-Y H:i'),
@@ -179,6 +181,23 @@ class DashboardController extends Controller
             }
         }
         return $result;
+    }
+
+    /**
+     * Keterangan narasi yang sudah diterbitkan: waktu terakhir disimpan (WIB) dan apakah data indikator
+     * sudah berubah sesudahnya (mis. diperbarui sinkron BPS), agar pembaca tahu narasinya mungkin tertinggal.
+     */
+    private static function infoNarasi(Indicator $indicator): ?array
+    {
+        $narasi = $indicator->narrative;
+        if (!$narasi || blank($narasi->content)) {
+            return null;
+        }
+
+        return [
+            'diperbarui' => $narasi->updated_at?->timezone('Asia/Jakarta')->format('d-m-Y H:i'),
+            'dataBerubah' => $narasi->dataBerubah($indicator->data),
+        ];
     }
 
     private function parseIndicatorData($indicator)
@@ -741,8 +760,15 @@ class DashboardController extends Controller
      */
     public function getFilteredData(Request $request)
     {
-        $indicatorId = $request->input('indicator_id');
-        $filters = $request->input('filters', []);
+        // Endpoint publik: input yang tidak sesuai dijawab 422, bukan galat server.
+        // Nama kolom bisa memuat titik (mis. "Kab./Kota"), jadi isi filters diperiksa di sini, bukan dengan
+        // aturan "filters.*"; nilai yang bukan teks/angka diabaikan.
+        $input = $request->validate([
+            'indicator_id' => 'required|integer',
+            'filters' => 'nullable|array',
+        ]);
+        $indicatorId = $input['indicator_id'];
+        $filters = array_filter($request->input('filters', []), fn ($nilai) => is_scalar($nilai));
         $indicator = Indicator::find($indicatorId);
         if (!$indicator) return response()->json(['error' => 'Indicator not found'], 404);
 
@@ -750,7 +776,7 @@ class DashboardController extends Controller
         if (!$parsedData) return response()->json(['error' => 'Invalid data structure'], 400);
 
         $filteredData = $parsedData['long_form'];
-        $temporalColumn = $parsedData['visualization_config']['x_axis_temporal'] ?? 'Tahun';
+        $temporalColumn = $parsedData['config']['x_axis_temporal'] ?? 'Tahun';
 
         $selectedYear = $filters[$temporalColumn] ?? null;
 
@@ -916,8 +942,8 @@ class DashboardController extends Controller
         $selectedModel = $modelApiMap[$selectedModel] ?? $selectedModel;
         // -----------------------------------------
 
-        // Cek URL API dari .env
-        $apiUrl = env('HUGGINGFACE_API_URL');
+        // Cek URL API dari .env (lewat config agar tetap terbaca setelah php artisan config:cache)
+        $apiUrl = config('services.huggingface.url');
         if (!$apiUrl) {
             return response()->json(['error' => 'Konfigurasi API URL belum diset di .env'], 500);
         }
@@ -975,28 +1001,31 @@ class DashboardController extends Controller
     // Menyimpan narasi yang telah dihasilkan atau diedit.
     public function saveNarrative(Request $request)
     {
-        // 1. Validasi Input
+        // 1. Cek Hak Akses lebih dulu (Role 1 = Admin, Role 3 = Penanggung Jawab), agar role lain tidak
+        // mendapat pesan validasi yang membocorkan ID indikator mana yang ada.
+        $user = Auth::user();
+        if (!$user || !in_array($user->role_id, [1, 3])) {
+            return response()->json(['error' => 'Unauthorized. Akses khusus Penanggung Jawab.'], 403);
+        }
+
+        // 2. Validasi Input
         $request->validate([
             'indicator_id' => 'required|exists:indicators,id',
             'narrative'    => 'required|string',
         ]);
 
-        // 2. Ambil User (GUNAKAN AUTH FACADE)
-        $user = Auth::user(); // <--- Ganti auth()->user() jadi Auth::user()
-
-        // 3. Cek Hak Akses
-        // Role 1 = Admin, Role 3 = Penanggung Jawab
-        if (!$user || !in_array($user->role_id, [1, 3])) {
-            return response()->json(['error' => 'Unauthorized. Akses khusus Penanggung Jawab.'], 403);
-        }
-
-        // 4. Simpan ke Database
+        // 3. Simpan ke Database. Narasi langsung terbit di dashboard publik; sidik data dicatat agar narasi
+        // ditandai bila data indikatornya berubah sesudah ini.
         $indicator = Indicator::find($request->indicator_id);
-        $indicator->narrative()->updateOrCreate(
+        $narasi = $indicator->narrative()->updateOrCreate(
             ['indicator_id' => $indicator->id],
-            ['user_id' => $user->id, 'content' => $request->narrative]
+            ['user_id' => $user->id, 'content' => $request->narrative, 'data_hash' => Narrative::sidikData($indicator->data)]
         );
 
-        return response()->json(['status' => 'success', 'message' => 'Narasi berhasil disimpan.']);
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Narasi berhasil disimpan.',
+            'diperbarui' => $narasi->updated_at?->timezone('Asia/Jakarta')->format('d-m-Y H:i'),
+        ]);
     }
 }

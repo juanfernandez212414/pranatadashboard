@@ -33,25 +33,19 @@ class GoogleController extends Controller
             // 2. Cari apakah user dengan email ini sudah ada di database
             $user = User::where('email', $googleUser->getEmail())->first();
 
-            if ($user) {
-                // JIKA USER SUDAH ADA: 
-                // Update google_id saja (jika sebelumnya kosong). 
-                // Jangan sentuh password dan role yang sudah ada!
-                $user->update([
-                    'google_id' => $googleUser->getId(),
-                ]);
-            } else {
-                // JIKA USER BELUM ADA:
-                // Buat pengguna baru secara utuh
-                $user = User::create([
-                    'name' => $googleUser->getName(),
-                    'email' => $googleUser->getEmail(),
-                    'google_id' => $googleUser->getId(),
-                    // Pastikan kolom 'password' di tabel migration Anda sudah di-set ->nullable()
-                    'password' => null,
-                    'role_id' => 4, // Otomatis pengguna biasa
+            // Login hanya untuk petugas yang akunnya dibuat Admin (menu Manajemen Pengguna). Masyarakat tidak
+            // perlu akun: dashboard, narasi, dan data terbuka tanpa login. Jadi email Google yang belum
+            // terdaftar tidak dibuatkan akun baru.
+            if (!$user) {
+                return redirect('/login')->withErrors([
+                    'email' => 'Email Google ini belum terdaftar sebagai akun petugas. Masyarakat dapat langsung melihat dashboard tanpa login.',
                 ]);
             }
+
+            // Update google_id saja (jika sebelumnya kosong). Jangan sentuh password dan role yang sudah ada!
+            $user->update([
+                'google_id' => $googleUser->getId(),
+            ]);
 
             // 3. Login-kan user ke sistem
             Auth::login($user);

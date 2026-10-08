@@ -146,13 +146,21 @@
             </nav>
 
             <div class="p-5">
-                <form method="POST" action="{{ route('logout') }}">
-                    @csrf
-                    <button type="submit"
-                        class="w-full bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white font-bold py-2.5 px-5 rounded-2xl transition-all duration-200 shadow-lg hover:shadow-xl text-[17px]">
-                        Logout
-                    </button>
-                </form>
+                @auth
+                    <form method="POST" action="{{ route('logout') }}">
+                        @csrf
+                        <button type="submit"
+                            class="w-full bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white font-bold py-2.5 px-5 rounded-2xl transition-all duration-200 shadow-lg hover:shadow-xl text-[17px]">
+                            Logout
+                        </button>
+                    </form>
+                @else
+                    {{-- Halaman ini terbuka untuk publik; login hanya untuk petugas (membuat narasi & mengelola data). --}}
+                    <a href="{{ route('login') }}"
+                        class="block w-full text-center bg-gradient-to-r from-[#002D72] to-[#003d8f] hover:from-[#003d8f] hover:to-[#0050b3] text-white font-bold py-2.5 px-5 rounded-2xl transition-all duration-200 shadow-lg hover:shadow-xl text-[17px]">
+                        Login Petugas
+                    </a>
+                @endauth
             </div>
         </aside>
 
@@ -180,17 +188,32 @@
                     </h2>
                 </div>
 
-                {{-- JADIKAN SEPERTI INI --}}
-                <a href="{{ route('pengguna.pengaturan') }}" title="Pengaturan Akun"
-                    class="flex items-center gap-3 p-1 sm:p-2 -mr-1 sm:-mr-2 rounded-lg hover:bg-white/10 transition-colors duration-200 cursor-pointer min-w-0 flex-shrink-0 lg:flex-shrink">
-                    <div class="text-right hidden lg:block min-w-0">
-                        <p class="text-white text-[20px] font-bold leading-[34px] truncate">Selamat Datang,
-                            {{ Auth::user()->name }}</p>
-                        <p class="text-white text-[12px] font-semibold leading-[16px] truncate">Semoga harimu menyenangkan</p>
+                @auth
+                    <a href="{{ route('pengguna.pengaturan') }}" title="Pengaturan Akun"
+                        class="flex items-center gap-3 p-1 sm:p-2 -mr-1 sm:-mr-2 rounded-lg hover:bg-white/10 transition-colors duration-200 cursor-pointer min-w-0 flex-shrink-0 lg:flex-shrink">
+                        <div class="text-right hidden lg:block min-w-0">
+                            <p class="text-white text-[20px] font-bold leading-[34px] truncate">Selamat Datang,
+                                {{ Auth::user()->name }}</p>
+                            <p class="text-white text-[12px] font-semibold leading-[16px] truncate">Semoga harimu menyenangkan</p>
+                        </div>
+                        <img src="{{ Auth::user()->avatar_url }}" alt="User Avatar"
+                            class="w-8 h-8 sm:w-9 sm:h-9 md:w-[42px] md:h-[43px] rounded-full object-cover border-2 border-white/30 shadow-md transform hover:scale-105 transition-transform duration-200 flex-shrink-0">
+                    </a>
+                @else
+                    <div class="flex items-center gap-3 min-w-0 flex-shrink-0 lg:flex-shrink">
+                        <div class="text-right hidden lg:block min-w-0">
+                            <p class="text-white text-[20px] font-bold leading-[34px] truncate">Selamat Datang di PRANATA</p>
+                            <p class="text-white text-[12px] font-semibold leading-[16px] truncate">Data dan narasi statistik terbuka untuk umum</p>
+                        </div>
+                        <a href="{{ route('login') }}" title="Login khusus petugas BPS" aria-label="Login Petugas"
+                            class="flex items-center gap-2 bg-white/10 hover:bg-white/20 border border-white/30 text-white text-xs sm:text-sm font-semibold px-3 py-2 rounded-lg transition-colors duration-200 flex-shrink-0">
+                            <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+                            </svg><span class="hidden sm:inline">Login Petugas</span>
+                        </a>
                     </div>
-                    <img src="{{ Auth::user()->avatar_url }}" alt="User Avatar"
-                        class="w-8 h-8 sm:w-9 sm:h-9 md:w-[42px] md:h-[43px] rounded-full object-cover border-2 border-white/30 shadow-md transform hover:scale-105 transition-transform duration-200 flex-shrink-0">
-                </a>
+                @endauth
             </header>
 
             <div class="flex-1 bg-[#F5F5F7] overflow-y-auto w-full flex flex-col">

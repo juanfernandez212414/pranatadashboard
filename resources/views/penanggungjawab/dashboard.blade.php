@@ -174,6 +174,7 @@
                             </h4>
                             <div class="max-w-none text-gray-700 text-[15px] leading-relaxed whitespace-pre-line"
                                 id="narrative-text-{{ $vis['id'] }}">{{ $vis['narrative'] }}</div>
+                            <x-narasi-info :vis="$vis" :petugas="true" />
                         </div>
                     </div>
 

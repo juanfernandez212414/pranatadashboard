@@ -40,9 +40,9 @@ class AuthController extends Controller
 
         // 5. Redirect Berdasarkan ROLE (Angka)
         // Role 1 = Admin
-        // Role 2 = User Biasa
+        // Role 2 = Pimpinan
         // Role 3 = Penanggung Jawab
-        // Role 4 = Pimpinan
+        // Role 4 = Pengguna Biasa (akun lama; masyarakat kini membuka dashboard tanpa login)
         if ($user->role_id == 1) {
             return redirect()->intended(route('admin.dashboard'));
         } elseif ($user->role_id == 3) {
@@ -51,42 +51,6 @@ class AuthController extends Controller
             // Jika role adalah 2 atau 4 (atau role lainnya)
             return redirect()->intended(route('pengguna.dashboard'));
         }
-    }
-
-    /**
-     * Menangani pendaftaran pengguna baru.
-     */
-    public function register(Request $request)
-    {
-        // 1. Validasi Input dengan Pesan Kustom Bahasa Indonesia
-        $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:users',
-            'password' => 'required|string|confirmed|min:8',
-        ], [
-            // Pesan Kustom
-            'name.required' => 'Nama tidak boleh kosong.',
-            'email.required' => 'Email tidak boleh kosong.',
-            'email.email' => 'Format email tidak valid.',
-            'email.unique' => 'Email ini sudah terdaftar. Silakan gunakan email lain.',
-            'password.required' => 'Password tidak boleh kosong.',
-            'password.confirmed' => 'Konfirmasi password tidak cocok.',
-            'password.min' => 'Password minimal harus 8 karakter.',
-        ]);
-
-        // 2. Buat User Baru
-        $user = User::create([
-            'name' => $request->name,
-            'email' => $request->email,
-            'password' => Hash::make($request->password),
-            // 'role_id' otomatis diisi 4 (user biasa) oleh database
-        ]);
-
-        // 3. Login User yang Baru Dibuat
-        Auth::login($user);
-
-        // 4. Redirect ke Halaman Pengguna (Karena user baru pasti role 2)
-        return redirect()->route('pengguna.dashboard');
     }
 
     /**

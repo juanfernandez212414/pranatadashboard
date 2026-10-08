@@ -129,7 +129,7 @@
         @if ($galatApiBps ?? null)
             <div class="bg-orange-50 border border-orange-200 text-orange-800 px-4 py-3 rounded-lg mb-4 text-sm" role="alert">
                 @if ($dataApiKosong ?? false)
-                    Data indikator ini belum bisa diambil dari WebAPI BPS. Coba lagi nanti, atau jalankan "Impor Semua Tabel Dinamis" di menu Data API BPS.
+                    Data indikator ini belum bisa diambil dari WebAPI BPS. Silakan coba lagi nanti.
                 @else
                     Data terbaru dari WebAPI BPS gagal diambil, jadi yang tampil adalah data terakhir yang tersimpan.
                 @endif
@@ -172,6 +172,7 @@
                             </h4>
                             <div class="max-w-none text-gray-700 text-[15px] leading-relaxed whitespace-pre-line"
                                 id="narrative-text-{{ $vis['id'] }}">{{ $vis['narrative'] }}</div>
+                            <x-narasi-info :vis="$vis" :petugas="false" />
                         </div>
                     </div>
 
@@ -254,9 +255,8 @@
                             <i class="fas fa-hand-pointer text-2xl"></i></div>
                         <h3 class="text-xl font-bold text-gray-900">Pilih Indikator Spesifik</h3>
                         <p class="mt-2 text-gray-500 max-w-md mx-auto">Subjek sudah terpilih. Sekarang silakan pilih
-                            spesifik <b>Indikator</b> dari dropdown di atas untuk menampilkan grafik dan mulai
-                            menggunakan
-                            AI.</p>
+                            spesifik <b>Indikator</b> dari dropdown di atas untuk menampilkan grafik dan
+                            analisis datanya.</p>
                     @else
                         <div class="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gray-100 text-gray-400 flex items-center justify-center">
                             <i class="fas fa-chart-bar text-2xl"></i></div>

@@ -205,7 +205,7 @@
                     </table>
                 @elseif (empty($indicator->data))
                     <p class="p-8 text-center text-sm text-gray-500">
-                        Data indikator ini belum tersedia.{{ $indicator->bps_source ? ' Datanya diambil dari WebAPI BPS saat dibuka; coba muat ulang halaman beberapa saat lagi.' : '' }}
+                        Data indikator ini belum tersedia.{{ $indicator->bps_source ? ' Datanya sedang disiapkan dari WebAPI BPS; silakan coba lagi nanti.' : '' }}
                     </p>
                 @else
                     <table class="w-full text-left border-collapse">

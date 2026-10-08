@@ -48,11 +48,12 @@
           <li><a href="#services">Modul AI</a></li>
           <li><a href="#faq">FAQ</a></li>
           <li><a href="#contact">Kontak</a></li>
+          <li><a href="{{ route('login') }}">Login Petugas</a></li>
         </ul>
         <i class="mobile-nav-toggle d-xl-none bi bi-list"></i>
       </nav>
 
-      <a class="btn-getstarted" href="{{ route('login') }}"><i class="bi bi-box-arrow-in-right me-2"></i>Login</a>
+      <a class="btn-getstarted" href="{{ route('pengguna.dashboard') }}"><i class="bi bi-bar-chart-line me-2"></i>Lihat Dashboard</a>
 
     </div>
   </header>
@@ -67,8 +68,10 @@
         <div class="d-flex flex-column justify-content-center align-items-center">
           <h1 data-aos="fade-up">Selamat Datang di <span>PRANATA</span></h1>
           <p data-aos="fade-up" data-aos-delay="100">Portal Otomatisasi Narasi Statistik untuk BPS Kota Pematangsiantar.<br>Mengubah data menjadi cerita bermakna dengan kekuatan <i>Artificial Intelligence</i>.</p>
-          <div class="d-flex" data-aos="fade-up" data-aos-delay="200">
-            <a href="{{ route('login') }}" class="btn-get-started"><i class="bi bi-shield-lock me-2"></i>Login Sistem</a>
+          {{-- Masyarakat langsung melihat dashboard dan narasi tanpa akun; login hanya untuk petugas. --}}
+          <div class="d-flex align-items-center flex-wrap justify-content-center" data-aos="fade-up" data-aos-delay="200">
+            <a href="{{ route('pengguna.dashboard') }}" class="btn-get-started"><i class="bi bi-bar-chart-line me-2"></i>Lihat Dashboard</a>
+            <a href="{{ route('login') }}" class="btn-watch-video d-flex align-items-center"><i class="bi bi-shield-lock"></i><span>Login Petugas</span></a>
           </div>
           <img src="{{ asset('assets/img/hero-services-img.webp') }}" class="img-fluid hero-img" alt="Ilustrasi Dashboard" data-aos="zoom-out" data-aos-delay="300">
         </div>
@@ -128,7 +131,7 @@
               <li><i class="bi bi-check-circle"></i> <span>Menerapkan teknik <i>Data Storytelling</i> untuk membuat angka statistik lebih mudah dipahami masyarakat luas.</span></li>
               <li><i class="bi bi-check-circle"></i> <span>Akses informasi satu pintu yang interaktif, praktis digunakan oleh internal maupun masyarakat umum.</span></li>
             </ul>
-            <a href="{{ route('login') }}" class="read-more"><span>Mulai Gunakan</span><i class="bi bi-arrow-right"></i></a>
+            <a href="{{ route('pengguna.dashboard') }}" class="read-more"><span>Lihat Dashboard</span><i class="bi bi-arrow-right"></i></a>
           </div>
 
           <div class="col-lg-6 about-images" data-aos="fade-up" data-aos-delay="200">
@@ -310,7 +313,7 @@
               <div class="faq-item">
                 <h3>Siapa yang berhak menggunakan sistem ini?</h3>
                 <div class="faq-content">
-                  <p>PRANATA dapat digunakan oleh masyarakat umum maupun pegawai BPS Kota Pematangsiantar. Masyarakat cukup mendaftar akun atau masuk dengan akun Google untuk melihat dashboard, visualisasi, dan narasi statistik, serta mengunduh data. Pengelolaan data, pembuatan narasi dengan AI, dan pengelolaan basis pengetahuan hanya dapat dilakukan oleh Admin dan Penanggung Jawab di lingkungan BPS Kota Pematangsiantar.</p>
+                  <p>PRANATA dapat digunakan oleh masyarakat umum maupun pegawai BPS Kota Pematangsiantar. Masyarakat dapat langsung melihat dashboard, visualisasi, dan narasi statistik, serta mengunduh data, <b>tanpa perlu login atau mendaftar</b>. Login hanya untuk petugas: pengelolaan data, pembuatan narasi dengan AI, dan pengelolaan basis pengetahuan dilakukan oleh Admin dan Penanggung Jawab di lingkungan BPS Kota Pematangsiantar.</p>
                 </div>
                 <i class="faq-toggle bi bi-chevron-right"></i>
               </div>
@@ -388,7 +391,8 @@
             <li><a href="#hero">Beranda</a></li>
             <li><a href="#about">Tentang Aplikasi</a></li>
             <li><a href="#features">Fitur</a></li>
-            <li><a href="{{ route('login') }}">Halaman Login</a></li>
+            <li><a href="{{ route('pengguna.dashboard') }}">Dashboard Publik</a></li>
+            <li><a href="{{ route('login') }}">Login Petugas</a></li>
           </ul>
         </div>
 

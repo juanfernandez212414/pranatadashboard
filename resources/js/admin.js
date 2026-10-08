@@ -759,6 +759,12 @@ window.saveNarrative = function (indicatorId) {
                 if (viewText) viewText.innerText = narrativeText;
                 if (viewContainer) viewContainer.classList.remove('hidden');
 
+                // Keterangan narasi: waktu simpan terbaru; peringatan "data sudah berubah" tidak berlaku lagi.
+                const tanggal = document.getElementById(`narrative-tanggal-${indicatorId}`);
+                if (tanggal && data.diperbarui) tanggal.textContent = data.diperbarui;
+                document.getElementById(`narrative-meta-${indicatorId}`)?.classList.remove('hidden');
+                document.getElementById(`narrative-basi-${indicatorId}`)?.remove();
+
                 toggleEditor(indicatorId);
 
                 Swal.fire({

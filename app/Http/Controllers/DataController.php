@@ -26,7 +26,7 @@ class DataController extends Controller
     {
         $user = Auth::user();
         // Hanya Role 1 (Admin) dan Role 3 (Penanggung Jawab) yang boleh mengelola data
-        if (!in_array($user->role_id, [1, 3])) {
+        if (!$user || !in_array($user->role_id, [1, 3])) {
             abort(403, 'Akses Ditolak. Hanya Admin dan Penanggung Jawab yang dapat mengelola data.');
         }
     }
@@ -308,7 +308,7 @@ class DataController extends Controller
 
     // ===========================================
     // --- FUNGSI BARU UNTUK HALAMAN LIHAT DATA ---
-    // (BISA DIAKSES OLEH SEMUA ROLE, VIEW DINAMIS)
+    // (BISA DIAKSES OLEH SEMUA ROLE DAN TAMU TANPA LOGIN, VIEW DINAMIS)
     // ===========================================
     public function showDataView()
     {
@@ -321,11 +321,11 @@ class DataController extends Controller
             }])->orderBy('name');
         }])->orderBy('name')->get();
 
-        // View dinamis berdasarkan role
-        $user = Auth::user();
-        if ($user->role_id == 1) {
+        // View dinamis berdasarkan role (tamu memakai tampilan Pengguna)
+        $roleId = Auth::user()?->role_id;
+        if ($roleId == 1) {
             $viewPath = 'admin.lihatdata';
-        } elseif ($user->role_id == 3) {
+        } elseif ($roleId == 3) {
             $viewPath = 'penanggungjawab.lihatdata';
         } else {
             $viewPath = 'pengguna.lihatdata';
@@ -340,13 +340,13 @@ class DataController extends Controller
     public function showDataDetail($id, SinkronisasiBps $sinkron)
     {
         $indicator = Indicator::with('subject.category')->findOrFail($id);
-        $galatApiBps = $sinkron->pastikanSegar($indicator); // indikator tabel dinamis BPS: data terbaru dari API
+        $galatApiBps = $this->segarkanBilaLogin($sinkron, $indicator); // tabel dinamis BPS: data terbaru dari API
 
-        // View dinamis berdasarkan role
-        $user = Auth::user();
-        if ($user->role_id == 1) {
+        // View dinamis berdasarkan role (tamu memakai tampilan Pengguna)
+        $roleId = Auth::user()?->role_id;
+        if ($roleId == 1) {
             $viewPath = 'admin.tampilandata';
-        } elseif ($user->role_id == 3) {
+        } elseif ($roleId == 3) {
             $viewPath = 'penanggungjawab.tampilandata';
         } else {
             $viewPath = 'pengguna.tampilandata';
@@ -355,14 +355,21 @@ class DataController extends Controller
         return view($viewPath, compact('indicator', 'galatApiBps'));
     }
 
+    // Indikator tabel dinamis BPS yang belum berdata diambil dari API hanya untuk pengguna yang login. Tamu
+    // (halaman publik) hanya membaca database, agar kunjungan publik tidak memicu panggilan WebAPI BPS.
+    private function segarkanBilaLogin(SinkronisasiBps $sinkron, Indicator $indicator): ?string
+    {
+        return Auth::check() ? $sinkron->pastikanSegar($indicator) : null;
+    }
+
     // ===========================================
     // --- EXPORT & IMPORT ---
     // ===========================================
     public function exportExcel($id, SinkronisasiBps $sinkron)
     {
-        // Semua role bisa export
+        // Semua role dan tamu bisa export
         $indicator = Indicator::findOrFail($id);
-        $sinkron->pastikanSegar($indicator);
+        $this->segarkanBilaLogin($sinkron, $indicator);
         $fileName = 'Data_Indikator_' . Str::slug($indicator->name) . '.xlsx';
         return Excel::download(new IndicatorExport($indicator), $fileName);
     }
@@ -370,9 +377,9 @@ class DataController extends Controller
     // Mengekspor data indikator ke format file PDF.
     public function exportPdf($id, SinkronisasiBps $sinkron)
     {
-        // Semua role bisa export
+        // Semua role dan tamu bisa export
         $indicator = Indicator::with('subject.category')->findOrFail($id);
-        $sinkron->pastikanSegar($indicator);
+        $this->segarkanBilaLogin($sinkron, $indicator);
         $fileName = 'Data_Indikator_' . Str::slug($indicator->name) . '.pdf';
 
         // KODE BARU: Mengarah langsung ke folder views

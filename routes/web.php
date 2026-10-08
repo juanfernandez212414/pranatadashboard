@@ -23,10 +23,33 @@ Route::get('/', function () {
     return view('welcome');
 })->name('welcome');
 
-// Rute Bantuan untuk Clear Cache di Server Live
+// Rute Bantuan untuk Clear Cache di Server Live (hanya Admin: optimize:clear juga menghapus cache API BPS)
 Route::get('/clear-cache-server', function () {
+    abort_unless(auth()->user()->role_id == 1, 403, 'Akses ditolak.');
     \Illuminate\Support\Facades\Artisan::call('optimize:clear');
     return 'Berhasil membersihkan cache server! Silakan coba fitur logout lagi.';
+})->middleware('auth');
+
+// ===================================================
+// --- RUTE PUBLIK: DASHBOARD & DATA TANPA LOGIN ---
+// ===================================================
+// Masyarakat langsung melihat dashboard, narasi yang sudah diterbitkan Admin/Penanggung Jawab, dan data
+// tanpa akun. Login hanya untuk petugas (Admin, Penanggung Jawab, Pimpinan). Nama dan alamat rutenya sama
+// dengan area Pengguna, jadi Pimpinan yang login juga memakai halaman ini. area.role tetap dipasang: Admin/PJ
+// yang login diarahkan ke dashboard miliknya (tempat membuat narasi). Halaman ini hanya membaca database
+// (tamu tidak memicu WebAPI BPS maupun layanan AI) dan dibatasi jumlah permintaannya per menit.
+Route::middleware(['area.role', 'throttle:publik'])->prefix('pengguna')->name('pengguna.')->group(function () {
+    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+    Route::get('/dashboard/get-filtered-data', [DashboardController::class, 'getFilteredData'])->name('dashboard.getFilteredData');
+
+    Route::get('/lihatdata', [DataController::class, 'showDataView'])->name('lihatdata');
+    Route::get('/lihatdata/{id}', [DataController::class, 'showDataDetail'])->name('lihatdata.show');
+    Route::middleware('throttle:unduh')->group(function () {
+        Route::get('/indicators/{id}/export/excel', [DataController::class, 'exportExcel'])->name('indicators.export.excel');
+        Route::get('/indicators/{id}/export/pdf', [DataController::class, 'exportPdf'])->name('indicators.export.pdf');
+    });
+
+    Route::get('/tentang-kami', fn () => view('pengguna.tentangkami'))->name('tentangkami');
 });
 
 // ===================================================
@@ -36,9 +59,6 @@ Route::middleware(['guest'])->group(function () {
     Route::get('/login', function () {
         return view('login');
     })->name('login');
-    Route::get('/register', function () {
-        return view('register');
-    })->name('register');
     Route::get('/forgot-password', function () {
         return view('forgotpassword');
     })->name('password.request');
@@ -49,7 +69,6 @@ Route::middleware(['guest'])->group(function () {
 
     // Proses Form
     Route::post('/login', [AuthController::class, 'login'])->name('login.post');
-    Route::post('/register', [AuthController::class, 'register'])->name('register.post');
     Route::post('/forgot-password', [AuthController::class, 'forgotPassword'])->name('password.email');
     Route::get('/reset-password/{token}', [AuthController::class, 'showResetForm'])->name('password.reset');
     Route::post('/reset-password', [AuthController::class, 'resetPassword'])->name('password.update');
@@ -73,11 +92,10 @@ Route::middleware(['auth', 'area.role'])->group(function () {
     Route::get('/admin/pengetahuan', [PengetahuanController::class, 'index'])->name('admin.pengetahuan');
 
     // Dashboard & AI Narasi
-    Route::get('/dashboard/config', [DashboardController::class, 'getConfig'])->name('dashboard.config');
     Route::get('/admin/dashboard', [DashboardController::class, 'index'])->name('admin.dashboard');
     Route::get('/admin/dashboard-peta', [DashboardController::class, 'map'])->name('admin.map');
     Route::get('/admin/dashboard/get-filtered-data', [DashboardController::class, 'getFilteredData'])->name('admin.dashboard.getFilteredData');
-    Route::post('/admin/dashboard/generate-narrative', [DashboardController::class, 'generateNarrative'])->name('admin.dashboard.generateNarrative');
+    Route::post('/admin/dashboard/generate-narrative', [DashboardController::class, 'generateNarrative'])->middleware('throttle:narasi')->name('admin.dashboard.generateNarrative');
     Route::post('/admin/dashboard/save-narrative', [DashboardController::class, 'saveNarrative'])->name('admin.dashboard.saveNarrative');
 
     // Alamat lama Admin (sebelum diseragamkan ke /admin/...) tetap bisa dibuka dari bookmark atau riwayat
@@ -154,7 +172,7 @@ Route::middleware(['auth', 'area.role'])->group(function () {
         // Dashboard & AI Narasi (Disamakan dengan Admin)
         Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
         Route::get('/dashboard/get-filtered-data', [DashboardController::class, 'getFilteredData'])->name('dashboard.getFilteredData');
-        Route::post('/dashboard/generate-narrative', [DashboardController::class, 'generateNarrative'])->name('dashboard.generateNarrative');
+        Route::post('/dashboard/generate-narrative', [DashboardController::class, 'generateNarrative'])->middleware('throttle:narasi')->name('dashboard.generateNarrative');
         Route::post('/dashboard/save-narrative', [DashboardController::class, 'saveNarrative'])->name('dashboard.saveNarrative');
 
         // Manajemen Data (Untuk menu sidebar Kelola Data & Lihat Data)
@@ -212,25 +230,12 @@ Route::middleware(['auth', 'area.role'])->group(function () {
 
 
     // ---------------------------------------------------
-    // 3. RUTE PENGGUNA UMUM (Role 2 & 4)
+    // 3. RUTE PENGGUNA UMUM YANG LOGIN (Role 2 & 4)
     // ---------------------------------------------------
+    // Dashboard, Lihat Data, unduh data, dan Tentang Kami ada di RUTE PUBLIK (tanpa login) di atas.
     Route::prefix('pengguna')->name('pengguna.')->group(function () {
 
-        // Dashboard (Hanya View & Filter)
-        Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
-        Route::get('/dashboard/get-filtered-data', [DashboardController::class, 'getFilteredData'])->name('dashboard.getFilteredData');
-
-        // Lihat Data (Tanpa akses Kelola/Edit)
-        Route::get('/lihatdata', [DataController::class, 'showDataView'])->name('lihatdata');
-        Route::get('/lihatdata/{id}', [DataController::class, 'showDataDetail'])->name('lihatdata.show');
-        Route::get('/indicators/{id}/export/excel', [DataController::class, 'exportExcel'])->name('indicators.export.excel');
-        Route::get('/indicators/{id}/export/pdf', [DataController::class, 'exportPdf'])->name('indicators.export.pdf');
-
-        // Tentang Kami & Pengaturan
-        Route::get('/tentang-kami', function () {
-            abort_unless(in_array(auth()->user()->role_id, [2, 4]), 403, 'Akses ditolak.');
-            return view('pengguna.tentangkami');
-        })->name('tentangkami');
+        // Pengaturan akun
         Route::get('/pengaturan', [ProfileController::class, 'edit'])->name('pengaturan');
         Route::patch('/pengaturan/profil', [ProfileController::class, 'update'])->name('profil.update');
         Route::put('/pengaturan/password', [ProfileController::class, 'updatePassword'])->name('password.update');

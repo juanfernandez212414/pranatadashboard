@@ -36,7 +36,7 @@
                     <img src="{{ asset('images/LogoPRANATA.png') }}" alt="Logo PRANATA" class="h-16 w-auto object-contain">
                 </div>
                 <h1 class="text-3xl font-bold text-gray-800 tracking-tight">PRANATA</h1>
-                <p class="mt-1.5 text-sm text-gray-500">Masuk untuk mengakses akun Anda</p>
+                <p class="mt-1.5 text-sm text-gray-500">Login petugas BPS (Admin, Penanggung Jawab, Pimpinan)</p>
             </div>
 
             @if (session('status'))
@@ -95,8 +95,8 @@
             </div>
 
             <div class="text-xs text-center text-gray-500 mt-2">
-                Belum punya akun?
-                <a href="{{ url('/register') }}" class="font-semibold text-blue-600 hover:text-blue-800 hover:underline transition">Daftar gratis</a>
+                Login hanya untuk petugas.
+                <a href="{{ route('pengguna.dashboard') }}" class="font-semibold text-blue-600 hover:text-blue-800 hover:underline transition">Lihat dashboard tanpa login</a>
             </div>
         </div>
     </div>
