@@ -13,8 +13,9 @@
     <div>
         <h3 class="text-lg md:text-xl font-semibold text-gray-900">Latih AI dengan publikasi BPS secara otomatis</h3>
         <p class="text-sm text-gray-500">
-            PDF publikasi diunduh langsung dari WebAPI BPS dan dikirim ke layanan AI untuk diekstrak ke basis pengetahuan
-            (dipakai narasi AI), tanpa unggah manual dan tanpa klik Ingest. Publikasi yang sudah dilatih dilewati.
+            Link PDF publikasi dari WebAPI BPS dikirim ke layanan AI, lalu server AI sendiri yang mengunduh dan mengekstraknya
+            ke basis pengetahuan (dipakai narasi AI): tanpa menyimpan PDF di server ini, tanpa unggah manual, dan tanpa klik
+            Ingest. Bila server AI tidak bisa mengunduh dari BPS, PDF diunduh di sini lalu dikirim. Publikasi yang sudah dilatih dilewati.
             Penjadwal Laravel juga menjalankannya setiap malam pukul 03.00 WIB.
         </p>
         @unless ($publikasiOtomatis['aiSiap'])
@@ -64,7 +65,7 @@
         <div>
             <h3 class="text-lg md:text-xl font-semibold text-gray-900">Publikasi BPS</h3>
             <p class="text-sm text-gray-500">
-                "Simpan &amp; Latih AI" mengunduh PDF publikasi ke basis pengetahuan dan langsung mengirimnya ke layanan AI.
+                "Latih AI" mengirim publikasi ke basis pengetahuan AI (server AI mengambil PDF-nya langsung dari BPS).
                 Daftar dokumen yang sudah dilatih ada di
                 <a href="{{ route($rute . 'pengetahuan') }}" class="text-[#002D72] font-medium underline">Manajemen Pengetahuan</a>.
             </p>
@@ -111,9 +112,9 @@
                                 Buka PDF
                             </a>
                         @endif
-                        @if ($pub['tersimpan'] && $pub['dilatih'])
+                        @if ($pub['dilatih'])
                             <span class="px-3 py-1.5 rounded-lg text-xs font-medium bg-green-100 text-green-800"
-                                title="{{ $pub['tersimpan'] }}">Sudah ada di basis pengetahuan AI</span>
+                                title="{{ $pub['tersimpan'] ?? '' }}">Sudah ada di basis pengetahuan AI</span>
                         @elseif ($pub['tersimpan'] || !empty($pub['pdf']))
                             @if ($pub['tersimpan'])
                                 <span class="px-3 py-1.5 rounded-lg text-xs font-medium bg-blue-100 text-blue-800"
@@ -124,7 +125,7 @@
                                 @csrf
                                 <button type="submit" :disabled="menyimpan"
                                     class="px-3 py-1.5 rounded-lg text-xs font-medium bg-[#002D72] text-white hover:bg-[#001f52] disabled:opacity-50 disabled:cursor-not-allowed">
-                                    <span x-show="!menyimpan">{{ $pub['tersimpan'] ? 'Latih ke AI' : 'Simpan & Latih AI' }}</span>
+                                    <span x-show="!menyimpan">{{ $pub['tersimpan'] ? 'Latih ke AI' : 'Latih AI' }}</span>
                                     <span x-show="menyimpan" x-cloak>Memproses PDF...</span>
                                 </button>
                             </form>

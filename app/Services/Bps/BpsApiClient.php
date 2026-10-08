@@ -374,10 +374,15 @@ class BpsApiClient
      * benar-benar PDF. Berkas ditulis ke "$tujuan.part" dulu, jadi unduhan gagal tidak meninggalkan
      * PDF rusak di folder tujuan.
      */
+    /** Hanya alamat https di server BPS (*.bps.go.id) yang boleh diunduh, di sini maupun oleh server AI. */
+    public static function alamatBps(string $url): bool
+    {
+        return parse_url($url, PHP_URL_SCHEME) === 'https' && preg_match('/(^|\.)bps\.go\.id$/i', (string) parse_url($url, PHP_URL_HOST)) === 1;
+    }
+
     public function unduhPdf(string $url, string $tujuan, int $maksByte, int $batasDetik = 240): void
     {
-        $host = (string) parse_url($url, PHP_URL_HOST);
-        if (parse_url($url, PHP_URL_SCHEME) !== 'https' || !preg_match('/(^|\.)bps\.go\.id$/i', $host)) {
+        if (!self::alamatBps($url)) {
             throw new BpsApiException('Alamat unduhan PDF bukan dari server BPS.');
         }
 

@@ -3,11 +3,14 @@
 namespace App\Services\Bps;
 
 use App\Services\BasisPengetahuan;
+use App\Services\LayananAiException;
 use RuntimeException;
 
 /**
- * Publikasi BPS (PDF) dari WebAPI BPS ke basis pengetahuan AI, tanpa unggah manual: PDF diunduh langsung
- * dari server BPS ke folder basis pengetahuan lalu dikirim ke layanan AI untuk diekstrak (ingest).
+ * Publikasi BPS (PDF) dari WebAPI BPS ke basis pengetahuan AI, tanpa unggah manual. Utamanya hanya link PDF
+ * dari API yang dikirim ke layanan AI, lalu server AI sendiri yang mengunduh dan mengekstrak (ingest) PDF itu,
+ * jadi PDF tidak perlu disimpan di server Laravel. Bila server AI belum mendukungnya atau tidak bisa
+ * mengunduh dari BPS, Laravel mengunduh PDF ke folder basis pengetahuan lalu mengunggahnya (cara cadangan).
  * Dipakai tombol di tab Publikasi (Data API BPS) dan perintah "php artisan bps:publikasi" (terjadwal).
  */
 class PublikasiBps
@@ -17,8 +20,9 @@ class PublikasiBps
 
     // Batas waktu (detik) unduh PDF dan kirim ke AI pada halaman web, agar satu permintaan tidak melewati
     // batas 60 detik nginx (Herd). Perintah bps:publikasi memakai batas penuh untuk PDF yang besar.
-    private const BATAS_HALAMAN_UNDUH = 30;
-    private const BATAS_HALAMAN_LATIH = 25;
+    private const BATAS_HALAMAN_LINK = 40;   // server AI mengunduh dari BPS
+    private const BATAS_HALAMAN_UNDUH = 30;  // cadangan: Laravel mengunduh dari BPS
+    private const BATAS_HALAMAN_LATIH = 25;  // cadangan: Laravel mengunggah ke server AI
 
     public function __construct(private BpsApiClient $bps)
     {
@@ -40,8 +44,8 @@ class PublikasiBps
 
     /**
      * Publikasi yang dirilis sejak tahun $sejak sampai tahun ini dan (bila $kata diisi) judulnya memuat
-     * salah satu kata kunci (dipisah koma): [['id', 'judul', 'rilis', 'berkas' => nama PDF tersimpan|null,
-     * 'dilatih' => bool], ...], terbaru dulu.
+     * salah satu kata kunci (dipisah koma): [['id', 'judul', 'rilis', 'berkas' => nama PDF di folder|null,
+     * 'dilatih' => sudah ada di basis pengetahuan AI], ...], terbaru dulu.
      */
     public function kandidat(int $sejak, string $kata = ''): array
     {
@@ -54,7 +58,7 @@ class PublikasiBps
 
         $kunci = array_values(array_filter(array_map(fn ($k) => mb_strtolower(trim($k)), explode(',', $kata))));
         $tersimpan = self::pdfTersimpan();
-        $dilatih = array_flip(BasisPengetahuan::sudahDiingest());
+        $dilatih = self::kunciDilatih();
 
         return collect($daftar)->flatten(1)
             ->filter(fn ($p) => filled($p['pub_id'] ?? null))
@@ -68,7 +72,7 @@ class PublikasiBps
                     'judul' => $judul,
                     'rilis' => (string) ($p['rl_date'] ?? ''),
                     'berkas' => $berkas,
-                    'dilatih' => $berkas !== null && isset($dilatih[$berkas]),
+                    'dilatih' => isset($dilatih[self::kunciNama($judul)]),
                 ];
             })
             ->filter(fn ($p) => $kunci === [] || collect($kunci)->contains(fn ($k) => str_contains(mb_strtolower($p['judul']), $k)))
@@ -76,10 +80,15 @@ class PublikasiBps
     }
 
     /**
-     * Satu publikasi ke basis pengetahuan AI: PDF diunduh dari server BPS bila belum ada di folder, lalu
-     * dikirim ke layanan AI bila belum pernah. Kegagalan pengiriman ke AI tidak membatalkan unduhan.
+     * Satu publikasi ke basis pengetahuan AI. Urutannya:
+     * 1. sudah pernah dilatih -> tidak ada yang dikirim;
+     * 2. PDF-nya sudah ada di folder -> berkas itu diunggah ke layanan AI;
+     * 3. selain itu link PDF dari API dikirim ke layanan AI (server AI mengunduh sendiri, tanpa disimpan di
+     *    server ini); bila layanan AI meminta cara cadangan, PDF diunduh ke folder lalu diunggah.
      *
-     * @return array ['judul', 'berkas', 'diunduh' => bool, 'dilatih' => bool (baru dikirim), 'sudahDilatih' => bool, 'galatLatih' => ?string]
+     * @return array ['judul', 'berkas' (nama dokumen di basis pengetahuan), 'lewatLink' => bool,
+     *               'diunduh' => bool (PDF diunduh ke folder), 'dilatih' => bool (baru dikirim),
+     *               'sudahDilatih' => bool, 'galatLatih' => ?string]
      *
      * @throws BpsApiException bila detail atau PDF publikasi gagal diambil dari BPS
      */
@@ -90,33 +99,53 @@ class PublikasiBps
         if (!$pub || empty($pub['pdf'])) {
             throw new BpsApiException('Publikasi ini tidak memiliki berkas PDF.');
         }
+        if (!BpsApiClient::alamatBps((string) $pub['pdf'])) {
+            throw new BpsApiException('Alamat unduhan PDF bukan dari server BPS.');
+        }
 
         $judul = KonverterTabelBps::bersihkanTeks($pub['title'] ?? $id, buangTerjemahan: false);
         $berkas = self::pdfTersimpan()[self::kunciNama($judul)] ?? null;
-        $diunduh = false;
+        $hasil = ['judul' => $judul, 'berkas' => $berkas ?? self::namaBerkas($judul), 'lewatLink' => false,
+            'diunduh' => false, 'dilatih' => false, 'sudahDilatih' => false, 'galatLatih' => null];
+
+        if (isset(self::kunciDilatih()[self::kunciNama($judul)])) {
+            return ['sudahDilatih' => true] + $hasil;
+        }
+
         if ($berkas === null) {
+            try {
+                BasisPengetahuan::ingestUrl($pub['pdf'], $hasil['berkas'], $batasHalaman ? self::BATAS_HALAMAN_LINK : 300);
+
+                return ['lewatLink' => true, 'dilatih' => true] + $hasil;
+            } catch (LayananAiException $e) {
+                if (!$e->bisaCadangan) {
+                    return ['galatLatih' => $e->getMessage()] + $hasil;
+                }
+            }
+
+            // Cara cadangan: unduh PDF ke folder basis pengetahuan, lalu unggah ke layanan AI.
             if (!is_dir(BasisPengetahuan::folder())) {
                 mkdir(BasisPengetahuan::folder(), 0775, true);
             }
-            $berkas = self::namaBerkas($judul);
-            $this->bps->unduhPdf($pub['pdf'], BasisPengetahuan::folder() . DIRECTORY_SEPARATOR . $berkas, self::MAKS_UKURAN_PDF,
+            $this->bps->unduhPdf($pub['pdf'], BasisPengetahuan::folder() . DIRECTORY_SEPARATOR . $hasil['berkas'], self::MAKS_UKURAN_PDF,
                 $batasHalaman ? self::BATAS_HALAMAN_UNDUH : 240);
-            $diunduh = true;
+            $hasil['diunduh'] = true;
         }
 
-        $sudahDilatih = in_array($berkas, BasisPengetahuan::sudahDiingest(), true);
-        $dilatih = false;
-        $galatLatih = null;
-        if (!$sudahDilatih) {
-            try {
-                BasisPengetahuan::ingestBerkas($berkas, $batasHalaman ? self::BATAS_HALAMAN_LATIH : 300);
-                $dilatih = true;
-            } catch (RuntimeException $e) {
-                $galatLatih = $e->getMessage();
-            }
+        try {
+            BasisPengetahuan::ingestBerkas($hasil['berkas'], $batasHalaman ? self::BATAS_HALAMAN_LATIH : 300);
+            $hasil['dilatih'] = true;
+        } catch (RuntimeException $e) {
+            $hasil['galatLatih'] = $e->getMessage();
         }
 
-        return compact('judul', 'berkas', 'diunduh', 'dilatih', 'sudahDilatih', 'galatLatih');
+        return $hasil;
+    }
+
+    /** [kunciNama => true] untuk dokumen yang sudah dikirim ke layanan AI (lewat link maupun berkas). */
+    public static function kunciDilatih(): array
+    {
+        return array_fill_keys(array_map(fn ($n) => self::kunciNama($n), BasisPengetahuan::sudahDiingest()), true);
     }
 
     // ===========================================

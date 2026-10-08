@@ -71,11 +71,11 @@ class DataBpsController extends Controller
             } else {
                 $publikasi = $this->bps->denganBatasHalaman(fn () => $this->bps->daftarPublikasi(max(1, (int) $request->query('page', 1)), $kataKunci));
                 $tersimpan = PublikasiBps::pdfTersimpan();
-                $dilatih = array_flip(BasisPengetahuan::sudahDiingest());
+                $dilatih = PublikasiBps::kunciDilatih();
                 foreach ($publikasi['item'] as &$pub) {
                     $pub['title'] = KonverterTabelBps::bersihkanTeks($pub['title'] ?? '', buangTerjemahan: false);
                     $pub['tersimpan'] = $tersimpan[PublikasiBps::kunciNama($pub['title'])] ?? null;
-                    $pub['dilatih'] = $pub['tersimpan'] !== null && isset($dilatih[$pub['tersimpan']]);
+                    $pub['dilatih'] = isset($dilatih[PublikasiBps::kunciNama($pub['title'])]);
                     $pub['pdf'] = self::urlAman($pub['pdf'] ?? null);
                     $pub['cover'] = self::urlAman($pub['cover'] ?? null);
                 }
@@ -436,10 +436,12 @@ class DataBpsController extends Controller
         $judul = "\"{$h['judul']}\"";
 
         return match (true) {
-            $h['galatLatih'] !== null => ($h['diunduh'] ? "PDF {$judul} tersimpan ({$h['berkas']}), tetapi" : "PDF {$judul} sudah ada, tetapi")
-                . " belum bisa dilatihkan ke AI: {$h['galatLatih']} Ulangi nanti, atau klik Ingest di Manajemen Pengetahuan.",
-            $h['dilatih'] => ($h['diunduh'] ? "PDF {$judul} diunduh dari WebAPI BPS" : "PDF {$judul} sudah ada")
-                . ' dan sedang dilatihkan ke AI (ekstraksi berjalan di server AI, beberapa menit).',
+            $h['galatLatih'] !== null => ($h['diunduh'] ? "PDF {$judul} tersimpan ({$h['berkas']}), tetapi" : "Publikasi {$judul}")
+                . " belum bisa dilatihkan ke AI: {$h['galatLatih']} Ulangi nanti, atau pakai perintah php artisan bps:publikasi.",
+            $h['lewatLink'] => "PDF {$judul} diambil server AI langsung dari link WebAPI BPS (tanpa disimpan di server ini) dan sedang"
+                . ' dilatihkan (ekstraksi berjalan di server AI, beberapa menit).',
+            $h['dilatih'] => ($h['diunduh'] ? "PDF {$judul} diunduh dari WebAPI BPS" : "PDF {$judul} yang tersimpan dikirim ke AI")
+                . ' dan sedang dilatihkan (ekstraksi berjalan di server AI, beberapa menit).',
             default => "Publikasi {$judul} sudah ada di basis pengetahuan AI ({$h['berkas']}).",
         };
     }

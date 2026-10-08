@@ -98,14 +98,26 @@ php artisan bps:cek 31 --mentah --tahun=2024   # respons JSON mentah dari API (k
 
 ## 6. Publikasi BPS untuk basis pengetahuan AI (tanpa unggah manual)
 
-PDF publikasi BPS diunduh langsung dari WebAPI BPS ke folder basis pengetahuan dan **langsung dikirim ke
-layanan AI untuk diekstrak (ingest)**. Tidak perlu mengunduh PDF sendiri, mengunggahnya, lalu klik Ingest.
+PDF publikasi BPS **tidak perlu disimpan di server Laravel**. Laravel hanya mengirim **link PDF** dari WebAPI
+BPS ke layanan AI (endpoint `/ingest-url` di `scripts/Hugging Face/main.py`); server Hugging Face sendiri yang
+mengunduh PDF itu lalu mengekstraknya (ingest) ke Qdrant. Tidak perlu mengunduh PDF, mengunggahnya, lalu klik Ingest.
+
+```
+WebAPI BPS ──(link PDF)──► Laravel ──POST /ingest-url {url, filename}──► Hugging Face ──unduh PDF dari BPS──► Qdrant
+```
+
+**Cara cadangan otomatis.** Bila server AI belum punya endpoint `/ingest-url` (Space belum di-deploy ulang)
+atau gagal mengunduh dari BPS, Laravel mengunduh PDF ke folder basis pengetahuan lalu mengunggahnya ke
+`/upload-ingest` seperti dulu. Bila server AI tidak bisa dihubungi, tidak ada yang diunduh; ulangi nanti.
+
+**Wajib sekali:** deploy ulang Space Hugging Face dengan `scripts/Hugging Face/main.py` terbaru agar mode link
+aktif. Link hanya diterima bila `https://` dan berasal dari `*.bps.go.id`.
 
 - **Semua publikasi baru sekaligus:** menu **Data API BPS → tab Publikasi → Ambil & Latih Publikasi Baru**.
   Pilih tahun rilis paling awal dan (opsional) kata kunci judul, misalnya `dalam angka`. Publikasi diproses
   satu per satu dengan progress bar; yang sudah dilatih dilewati.
-- **Satu publikasi:** tombol **Simpan & Latih AI** di daftar publikasi (atau **Latih ke AI** bila PDF-nya
-  sudah tersimpan tetapi belum dilatih).
+- **Satu publikasi:** tombol **Latih AI** di daftar publikasi (atau **Latih ke AI** bila PDF-nya sudah
+  tersimpan di folder dari unggahan lama tetapi belum dilatih).
 - **Otomatis setiap malam (03.00 WIB)** bila penjadwal Laravel berjalan, memakai pengaturan
   `BPS_PUBLIKASI_SEJAK` (tahun rilis paling awal; kosong = tahun lalu) dan `BPS_PUBLIKASI_KATA` di `.env`.
 - **Dari terminal** (cocok untuk PDF besar atau banyak sekaligus, tanpa batas waktu halaman):
@@ -117,12 +129,15 @@ layanan AI untuk diekstrak (ingest)**. Tidak perlu mengunduh PDF sendiri, mengun
 
 Syarat: `HUGGINGFACE_API_URL` di `.env` terisi dan server Hugging Face aktif. Ekstraksi PDF berjalan di
 server AI dan butuh beberapa menit per dokumen; hasilnya terlihat di **Manajemen Pengetahuan**. Di halaman
-web, satu publikasi dibatasi sekitar 1 menit (unduh 30 detik + kirim ke AI 25 detik); bila PDF terlalu
-besar atau server AI sedang "bangun", ulangi nanti atau pakai perintah terminal.
+web, satu publikasi dibatasi sekitar 40 detik (server AI mengunduh dari BPS); bila PDF terlalu besar atau
+server AI sedang "bangun", ulangi nanti atau pakai perintah terminal.
+
+Status "sudah dilatih" dicatat di `storage/app/processed_log_bge_m3.txt` (log yang sama dengan Ingest manual),
+jadi publikasi yang dilatih lewat link tidak dikirim dua kali walaupun PDF-nya tidak ada di folder.
 
 ## 7. Narasi AI (RAG)
 
-Tidak ada yang berubah di layanan Hugging Face (`scripts/Hugging Face/main.py`). Laravel mengirim data
+Endpoint narasi di layanan Hugging Face (`scripts/Hugging Face/main.py`) tidak berubah. Laravel mengirim data
 indikator dari database (`data_json`, format tabel `headers`/`rows` yang sama dengan impor Excel) ke
 `/generate-narrative`; `main.py` mengubahnya ke tabel markdown, menambah konteks RAG dari Qdrant, lalu
 memanggil LLM. Karena seluruh tahun ikut dikirim, tabel bisa lebih besar dari sebelumnya.

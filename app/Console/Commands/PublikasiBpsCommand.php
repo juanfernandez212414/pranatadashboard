@@ -10,7 +10,8 @@ use Illuminate\Console\Command;
 
 /**
  * Publikasi BPS ke basis pengetahuan AI tanpa unggah manual (juga dijalankan harian oleh penjadwal):
- * PDF publikasi diunduh dari WebAPI BPS lalu dikirim ke layanan AI untuk diekstrak.
+ * link PDF dari WebAPI BPS dikirim ke layanan AI yang mengunduh & mengekstraknya sendiri (cadangan: PDF
+ * diunduh ke folder basis pengetahuan lalu diunggah).
  *
  *   php artisan bps:publikasi                         rilis sejak BPS_PUBLIKASI_SEJAK (bawaan tahun lalu)
  *   php artisan bps:publikasi --sejak=2023 --kata="dalam angka,statistik daerah"
@@ -49,7 +50,7 @@ class PublikasiBpsCommand extends Command
         if ($this->option('daftar')) {
             $this->table(['ID', 'Judul', 'Rilis', 'Status'], array_map(fn ($p) => [
                 $p['id'], mb_strimwidth($p['judul'], 0, 70, '…'), $p['rilis'],
-                $p['dilatih'] ? 'sudah dilatih' : ($p['berkas'] ? 'tersimpan, belum dilatih' : 'belum diunduh'),
+                $p['dilatih'] ? 'sudah dilatih' : ($p['berkas'] ? 'PDF tersimpan, belum dilatih' : 'belum dilatih'),
             ], $kandidat));
 
             return self::SUCCESS;
@@ -91,7 +92,8 @@ class PublikasiBpsCommand extends Command
             }
 
             $berhasil++;
-            $this->line("{$nomor} <info>✓</info> {$p['judul']}" . ($hasil['diunduh'] ? ' (diunduh)' : '') . ' → dilatihkan ke AI');
+            $cara = $hasil['lewatLink'] ? 'link dikirim, server AI mengunduh sendiri' : ($hasil['diunduh'] ? 'diunduh lalu diunggah' : 'berkas tersimpan diunggah');
+            $this->line("{$nomor} <info>✓</info> {$p['judul']}" . ($hasil['sudahDilatih'] ? ' (sudah ada)' : " ({$cara})"));
         }
 
         $this->newLine();

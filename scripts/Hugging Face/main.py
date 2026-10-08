@@ -391,6 +391,80 @@ def upload_ingest(background_tasks: BackgroundTasks, files: List[UploadFile] = F
         "message": f"Menerima {len(files)} file. Proses Ingest berjalan di background."
     }
 
+# =================================================================
+# 5. INGEST LANGSUNG DARI LINK PDF PUBLIKASI BPS (TANPA UNGGAH DARI LARAVEL)
+# =================================================================
+# Laravel hanya mengirim link PDF dari WebAPI BPS; server ini yang mengunduh PDF-nya, lalu ingest berjalan
+# di latar belakang seperti /upload-ingest. Hanya alamat https *.bps.go.id yang diterima (mencegah server
+# ini dipakai mengunduh alamat lain).
+_HOST_BPS_RE = re.compile(r"(^|\.)bps\.go\.id$", re.IGNORECASE)
+_NAMA_PDF_RE = re.compile(r"[A-Za-z0-9_\-\.]{1,200}\.pdf")
+MAKS_PDF_URL_BYTES = 100 * 1024 * 1024
+_sedang_diproses_url = set()  # nama berkas yang sedang diunduh/di-ingest dari link, agar tidak ganda
+
+class IngestUrlRequest(BaseModel):
+    url: str
+    filename: str
+
+def task_ingest_dari_url(file_records: List[Dict[str, str]]):
+    """Ingest berkas hasil unduhan /ingest-url, lalu melepas tanda 'sedang diproses'."""
+    try:
+        task_ingest_from_files(file_records)
+    finally:
+        for record in file_records:
+            _sedang_diproses_url.discard(record["filename"])
+
+@app.post("/ingest-url")
+def ingest_url(req: IngestUrlRequest, background_tasks: BackgroundTasks):
+    """Mengunduh PDF publikasi langsung dari server BPS (tanpa disimpan dulu di server Laravel), lalu menjadwalkan ingest di latar belakang."""
+    import requests
+    from urllib.parse import urlparse
+    from fastapi import HTTPException
+
+    alamat = urlparse(req.url.strip())
+    if alamat.scheme != "https" or not _HOST_BPS_RE.search(alamat.hostname or ""):
+        raise HTTPException(status_code=422, detail="Alamat PDF bukan dari server BPS.")
+    nama = req.filename.strip()
+    if not _NAMA_PDF_RE.fullmatch(nama):
+        raise HTTPException(status_code=422, detail="Nama berkas tidak valid.")
+    if nama in _sedang_diproses_url:
+        return {"status": "started", "message": f"{nama} sedang diproses."}
+    if is_document_exist_in_qdrant(nama):
+        return {"status": "exists", "message": f"{nama} sudah ada di basis pengetahuan."}
+
+    _sedang_diproses_url.add(nama)
+    fd, tmp_path = tempfile.mkstemp(suffix=".pdf")
+    try:
+        with os.fdopen(fd, "wb") as berkas:
+            with requests.get(req.url.strip(), stream=True, timeout=(15, 120), allow_redirects=False,
+                              headers={"User-Agent": "PRANATA/1.0 (BPS Kota Pematangsiantar)"}) as respons:
+                if respons.status_code != 200:
+                    raise HTTPException(status_code=502, detail=f"Server BPS menolak unduhan dari server AI (HTTP {respons.status_code}).")
+                ukuran = 0
+                for potongan in respons.iter_content(chunk_size=1 << 16):
+                    ukuran += len(potongan)
+                    if ukuran > MAKS_PDF_URL_BYTES:
+                        raise HTTPException(status_code=413, detail="PDF melebihi batas 100 MB.")
+                    berkas.write(potongan)
+        with open(tmp_path, "rb") as berkas:
+            if berkas.read(5) != b"%PDF-":
+                raise HTTPException(status_code=502, detail="Berkas yang diterima server AI dari BPS bukan PDF.")
+    except HTTPException:
+        _sedang_diproses_url.discard(nama)
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
+        raise
+    except Exception as e:
+        _sedang_diproses_url.discard(nama)
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
+        print(f"❌ Gagal mengunduh {nama} dari BPS: {e}", flush=True)
+        raise HTTPException(status_code=502, detail=f"Server AI gagal mengunduh PDF dari BPS ({e.__class__.__name__}).")
+
+    print(f"⬇️ {nama} diunduh dari BPS ({ukuran} byte), ingest dijadwalkan.", flush=True)
+    background_tasks.add_task(task_ingest_dari_url, [{"tmp_path": tmp_path, "filename": nama}])
+    return {"status": "started", "message": f"{nama} diunduh dari BPS. Proses Ingest berjalan di background.", "bytes": ukuran}
+
 @app.get("/")
 def home():
     """Endpoint dasar/root untuk mengecek apakah server FastAPI ini sedang hidup (aktif)."""
@@ -755,7 +829,6 @@ def log_token_openai(label, chat, durasi_api):
         print(f"⚠️ Gagal mencatat pemakaian token {label}: {log_error}", flush=True)
 
 def generate_via_groq_fallback(category, subject, indicator, data_table, rag_query,
-    """Menggunakan API Groq sebagai AI cadangan (fallback) seandainya API Hugging Face utama sedang down atau terlalu lambat."""
                                 groq_model="openai/gpt-oss-120b", context=None, extra_instruction=""):
     """Jalankan narasi via Groq Cloud dengan prompt ringkas (dipakai untuk GPT-OSS 120B)."""
     # Reuse context yang sudah diambil kalau ada (hemat 1 panggilan Qdrant); kalau tidak,
@@ -821,7 +894,6 @@ def call_hf(model_id, system_prompt, user_prompt, extra_instruction=""):
     return chat.choices[0].message.content
 
 def call_narrative_provider(target_model, system_prompt, user_prompt, context, rag_query,
-    """Fungsi inti yang mengontrol AI mana (Hugging Face, OpenAI, atau Groq) yang harus dipanggil berdasarkan nama model yang dipilih user."""
                              category, subject, indicator, data_table, extra_instruction=""):
     """Dispatch ke penyedia sesuai model yang DIPILIH USER dan kembalikan (narrative, label_model).
     Gemini memakai prompt lengkap (system_prompt/user_prompt); Llama dan GPT-OSS memakai prompt ringkas.

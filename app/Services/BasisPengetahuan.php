@@ -2,12 +2,14 @@
 
 namespace App\Services;
 
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 use RuntimeException;
 
 /**
  * Basis pengetahuan AI (RAG): folder PDF publikasi di server Laravel dan layanan AI di Hugging Face
- * (scripts/Hugging Face/main.py) yang mengekstrak PDF menjadi vektor di Qdrant. Dipakai untuk melatih
+ * (scripts/Hugging Face/main.py) yang mengekstrak PDF menjadi vektor di Qdrant. Publikasi BPS dikirim
+ * sebagai link (ingestUrl, server AI mengunduh sendiri); PDF di folder dikirim sebagai berkas (ingestBerkas). Dipakai untuk melatih
  * publikasi BPS secara otomatis tanpa unggah manual (App\Services\Bps\PublikasiBps). Halaman Manajemen
  * Pengetahuan (PengetahuanController) memakai folder dan berkas log yang sama.
  */
@@ -40,6 +42,40 @@ class BasisPengetahuan
     }
 
     /**
+     * Meminta layanan AI mengunduh PDF langsung dari link WebAPI BPS lalu meng-ingest-nya (/ingest-url),
+     * tanpa PDF disimpan di server Laravel dan tanpa unggahan berkas besar dari server ini. Bila berhasil,
+     * $nama (nama dokumen di basis pengetahuan) dicatat di log.
+     *
+     * @throws LayananAiException bisaCadangan = true bila Laravel sebaiknya mengunduh & mengunggah sendiri
+     */
+    public static function ingestUrl(string $urlPdf, string $nama, int $batasDetik = 300): void
+    {
+        $url = self::urlAi() ?? throw new LayananAiException('Alamat layanan AI (HUGGINGFACE_API_URL) belum diisi di .env.');
+
+        try {
+            $respons = Http::withoutVerifying()->acceptJson()->timeout($batasDetik)
+                ->post($url . '/ingest-url', ['url' => $urlPdf, 'filename' => $nama]);
+        } catch (ConnectionException $e) {
+            throw new LayananAiException('Layanan AI tidak merespons (mungkin sedang memulai). Coba lagi beberapa saat lagi.', false, $e);
+        }
+
+        if ($respons->successful()) {
+            self::catatDiingest($nama);
+
+            return;
+        }
+
+        $rincian = is_string($respons->json('detail')) ? $respons->json('detail') : "HTTP {$respons->status()}";
+        throw match (true) {
+            // Server AI belum memakai kode terbaru (endpoint belum ada).
+            in_array($respons->status(), [404, 405], true) => new LayananAiException('Layanan AI belum mendukung pelatihan dari link (deploy ulang scripts/Hugging Face/main.py).', true),
+            // Server AI gagal mengunduh dari BPS (mis. diblokir firewall BPS): Laravel bisa mengunduh sendiri.
+            $respons->status() === 502 => new LayananAiException($rincian, true),
+            default => new LayananAiException("Layanan AI menolak permintaan: {$rincian}"),
+        };
+    }
+
+    /**
      * Mengirim satu PDF di folder basis pengetahuan ke layanan AI (/upload-ingest). Ekstraksi dan
      * embedding berjalan di latar belakang server AI; berkas dicatat di log agar tidak dikirim ulang.
      *
@@ -67,6 +103,11 @@ class BasisPengetahuan
         if (!$respons->successful()) {
             throw new RuntimeException("Layanan AI menolak berkas (HTTP {$respons->status()}).");
         }
+        self::catatDiingest($nama);
+    }
+
+    private static function catatDiingest(string $nama): void
+    {
         if (!in_array($nama, self::sudahDiingest(), true)) {
             file_put_contents(self::berkasLog(), $nama . PHP_EOL, FILE_APPEND | LOCK_EX);
         }
