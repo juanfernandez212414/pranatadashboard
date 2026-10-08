@@ -340,7 +340,7 @@ class DataController extends Controller
     public function showDataDetail($id, SinkronisasiBps $sinkron)
     {
         $indicator = Indicator::with('subject.category')->findOrFail($id);
-        $galatApiBps = $this->segarkanBilaLogin($sinkron, $indicator); // tabel dinamis BPS: data terbaru dari API
+        $galatApiBps = $this->segarkanBilaPerlu($sinkron, $indicator); // tabel dinamis BPS: data terbaru dari API
 
         // View dinamis berdasarkan role (tamu memakai tampilan Pengguna)
         $roleId = Auth::user()?->role_id;
@@ -355,11 +355,12 @@ class DataController extends Controller
         return view($viewPath, compact('indicator', 'galatApiBps'));
     }
 
-    // Indikator tabel dinamis BPS yang belum berdata diambil dari API hanya untuk pengguna yang login. Tamu
-    // (halaman publik) hanya membaca database, agar kunjungan publik tidak memicu panggilan WebAPI BPS.
-    private function segarkanBilaLogin(SinkronisasiBps $sinkron, Indicator $indicator): ?string
+    // Indikator tabel dinamis BPS: data diambil dari API bila belum ada (juga untuk tamu, hanya pengambilan
+    // pertama itu, dibatasi kunci per indikator dan jeda bila gagal). Penyegaran data yang sudah ada
+    // (BPS_SEGAR_MENIT) hanya untuk pengguna yang login, agar kunjungan publik tidak terus memicu WebAPI BPS.
+    private function segarkanBilaPerlu(SinkronisasiBps $sinkron, Indicator $indicator): ?string
     {
-        return Auth::check() ? $sinkron->pastikanSegar($indicator) : null;
+        return Auth::check() || empty($indicator->data) ? $sinkron->pastikanSegar($indicator) : null;
     }
 
     // ===========================================
@@ -369,7 +370,7 @@ class DataController extends Controller
     {
         // Semua role dan tamu bisa export
         $indicator = Indicator::findOrFail($id);
-        $this->segarkanBilaLogin($sinkron, $indicator);
+        $this->segarkanBilaPerlu($sinkron, $indicator);
         $fileName = 'Data_Indikator_' . Str::slug($indicator->name) . '.xlsx';
         return Excel::download(new IndicatorExport($indicator), $fileName);
     }
@@ -379,7 +380,7 @@ class DataController extends Controller
     {
         // Semua role dan tamu bisa export
         $indicator = Indicator::with('subject.category')->findOrFail($id);
-        $this->segarkanBilaLogin($sinkron, $indicator);
+        $this->segarkanBilaPerlu($sinkron, $indicator);
         $fileName = 'Data_Indikator_' . Str::slug($indicator->name) . '.pdf';
 
         // KODE BARU: Mengarah langsung ke folder views

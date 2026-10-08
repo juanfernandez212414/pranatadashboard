@@ -44,12 +44,15 @@ class DashboardController extends Controller
 
         $categories = Category::all();
 
-        // ... (Bagian 0: Ambil Filter - sudah benar) ...
-        $selectedCategoryId = $request->query('category_id');
+        // ... (Bagian 0: Ambil Filter) ...
+        // Halaman ini publik: hanya ID berupa bilangan bulat yang dipakai. Nilai lain dari alamat halaman
+        // (mis. category_id[]=1 atau teks) dianggap tidak dipilih, bukan menimbulkan galat server.
+        $ambilId = fn (string $kunci) => filter_var($request->query($kunci), FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]) ?: null;
+        $selectedCategoryId = $ambilId('category_id');
         $selectedCategory = $selectedCategoryId ? Category::find($selectedCategoryId) : null;
         $title = $selectedCategory ? 'Dashboard: ' . $selectedCategory->name : 'Dashboard Utama';
-        $selectedSubjectId = $request->input('subject_id');
-        $selectedIndicatorId = $request->input('indicator_id');
+        $selectedSubjectId = $ambilId('subject_id');
+        $selectedIndicatorId = $ambilId('indicator_id');
 
         // ... (Bagian 1: Data Statistik - sudah benar) ...
         $statsSubjectQuery = Subject::query();
@@ -91,11 +94,12 @@ class DashboardController extends Controller
 
         // HANYA ambil data visualisasi JIKA Indikator sudah benar-benar dipilih
         if ($selectedIndicatorId) {
-            // Indikator tabel dinamis BPS yang belum berdata diambil dari API saat dibuka pengguna yang login,
-            // lalu disimpan agar filter AJAX, Lihat Data, dan narasi AI memakai data yang sama. Tamu hanya
-            // membaca database (diisi Impor Semua dan jadwal malam), agar kunjungan publik tidak memicu API.
+            // Indikator tabel dinamis BPS yang belum berdata diambil dari API saat pertama dibuka, lalu disimpan
+            // agar filter AJAX, Lihat Data, dan narasi AI memakai data yang sama. Tamu hanya memicu pengambilan
+            // pertama itu (dibatasi kunci per indikator dan jeda bila gagal); penyegaran data yang sudah ada
+            // (BPS_SEGAR_MENIT) hanya untuk pengguna yang login.
             if ($indikatorDipilih = Indicator::find($selectedIndicatorId)) {
-                if (Auth::check()) {
+                if (Auth::check() || empty($indikatorDipilih->data)) {
                     $galatApiBps = $sinkron->pastikanSegar($indikatorDipilih);
                 }
                 $dataApiKosong = $indikatorDipilih->bps_source !== null && empty($indikatorDipilih->data);
@@ -768,7 +772,8 @@ class DashboardController extends Controller
             'filters' => 'nullable|array',
         ]);
         $indicatorId = $input['indicator_id'];
-        $filters = array_filter($request->input('filters', []), fn ($nilai) => is_scalar($nilai));
+        $filters = $request->input('filters'); // bisa null (filters= kosong)
+        $filters = array_filter(is_array($filters) ? $filters : [], fn ($nilai) => is_scalar($nilai));
         $indicator = Indicator::find($indicatorId);
         if (!$indicator) return response()->json(['error' => 'Indicator not found'], 404);
 
@@ -776,7 +781,10 @@ class DashboardController extends Controller
         if (!$parsedData) return response()->json(['error' => 'Invalid data structure'], 400);
 
         $filteredData = $parsedData['long_form'];
-        $temporalColumn = $parsedData['config']['x_axis_temporal'] ?? 'Tahun';
+        // Kolom waktu yang tidak difilter di backend dan menjadi selected_year: selalu 'Tahun', sesuai yang
+        // diharapkan JS dashboard. (config x_axis_temporal bisa menunjuk kolom lain pada tabel lebar, mis.
+        // "Bulan" atau judul kolom yang memuat kata waktu, sehingga tidak dipakai di sini.)
+        $temporalColumn = 'Tahun';
 
         $selectedYear = $filters[$temporalColumn] ?? null;
 

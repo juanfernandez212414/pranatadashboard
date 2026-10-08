@@ -33,7 +33,10 @@ class AppServiceProvider extends ServiceProvider
         $kunci = fn (Request $request) => $request->user()?->id ? 'akun:' . $request->user()->id : 'ip:' . $request->ip();
         RateLimiter::for('publik', fn (Request $request) => Limit::perMinute(120)->by($kunci($request)));
         RateLimiter::for('unduh', fn (Request $request) => Limit::perMinute(10)->by($kunci($request)));
-        RateLimiter::for('narasi', fn (Request $request) => Limit::perMinute(5)->by($kunci($request)));
+        // Pesan dalam kunci "error" agar pop-up dashboard (admin.js/pj.js) menampilkannya apa adanya.
+        RateLimiter::for('narasi', fn (Request $request) => Limit::perMinute(5)->by($kunci($request))
+            ->response(fn (Request $request, array $headers) => response()->json(
+                ['error' => 'Batas 5 permintaan generate narasi per menit tercapai. Tunggu sekitar 1 menit, lalu coba lagi.'], 429, $headers)));
 
         // Menggunakan array untuk mengirim data ke 3 layout sekaligus
         View::composer(

@@ -105,8 +105,31 @@ it('melayani filter grafik dashboard untuk tamu dan menolak input yang tidak ses
     $this->getJson('/pengguna/dashboard/get-filtered-data?' . http_build_query([
         'indicator_id' => $this->indikator->id, 'filters' => ['Kecamatan' => ['x' => 'y']],
     ]))->assertOk()->assertJsonCount(4, 'data');
+    $this->getJson('/pengguna/dashboard/get-filtered-data?indicator_id=' . $this->indikator->id . '&filters=')
+        ->assertOk()->assertJsonCount(4, 'data');
     $this->getJson('/pengguna/dashboard/get-filtered-data')->assertStatus(422);
     $this->getJson('/pengguna/dashboard/get-filtered-data?indicator_id=999999')->assertNotFound();
+});
+
+it('memakai kolom Tahun sebagai tahun terpilih walau kolom pertama tabel berupa waktu lain', function () {
+    $sel = fn ($nilai) => ['value' => $nilai, 'colspan' => 1, 'rowspan' => 1, 'hidden' => false];
+    $bulanan = Indicator::create([
+        'subject_id' => $this->subjek->id, 'name' => 'Penumpang Menurut Bulan', 'unit' => 'Orang',
+        'data' => ['headers' => [$sel('Bulan'), $sel('2023'), $sel('2024')],
+            'rows' => [[$sel('Januari'), $sel('10'), $sel('12')], [$sel('Februari'), $sel('11'), $sel('13')]]],
+    ]);
+
+    $this->getJson('/pengguna/dashboard/get-filtered-data?' . http_build_query([
+        'indicator_id' => $bulanan->id, 'filters' => ['Bulan' => '', 'Tahun' => '2024'],
+    ]))->assertOk()->assertJsonPath('temporal_column', 'Tahun')->assertJsonPath('selected_year', '2024')
+        ->assertJsonCount(4, 'data'); // kolom waktu tidak difilter di backend (ditangani JS)
+});
+
+it('tidak galat bila parameter dashboard publik bukan angka', function () {
+    $this->get('/pengguna/dashboard?category_id[]=1&subject_id=abc&indicator_id[]=' . $this->indikator->id)
+        ->assertOk()->assertSee('Dashboard Utama');
+    $this->get('/pengguna/dashboard?category_id=' . $this->kategori->id . '&subject_id=' . $this->subjek->id . '&indicator_id=-5')
+        ->assertOk()->assertSee('Dashboard: Kependudukan');
 });
 
 it('membuka Lihat Data dan unduhan untuk tamu tanpa login', function () {
@@ -117,16 +140,34 @@ it('membuka Lihat Data dan unduhan untuk tamu tanpa login', function () {
     Http::assertNothingSent();
 });
 
-it('tidak memicu WebAPI BPS saat tamu membuka indikator yang belum berdata', function () {
+it('hanya memicu pengambilan pertama WebAPI BPS saat tamu membuka indikator yang belum berdata', function () {
+    // Belum berdata: kunjungan tamu pertama mengambil datanya (di sini API palsu gagal, jadi tetap kosong).
     $this->get(($this->urlDashboard)($this->indikatorBps))->assertOk()->assertSee('Penduduk Menurut Kelompok Umur');
+    Http::assertSent(fn ($r) => str_contains($r->url(), 'webapi.bps.go.id'));
+
+    // Setelah gagal ada jeda, jadi kunjungan berikutnya tidak memanggil API lagi.
+    $jumlah = count(Http::recorded());
     $this->get("/pengguna/lihatdata/{$this->indikatorBps->id}")->assertOk()
         ->assertSee('Datanya sedang disiapkan dari WebAPI BPS');
     $this->get("/pengguna/indicators/{$this->indikatorBps->id}/export/excel")->assertOk();
     $this->get("/pengguna/indicators/{$this->indikatorBps->id}/export/pdf")->assertOk();
+    expect(count(Http::recorded()))->toBe($jumlah);
+});
+
+it('tidak menyegarkan data BPS yang sudah ada untuk tamu walau BPS_SEGAR_MENIT terisi', function () {
+    config(['services.bps.segar_menit' => 60]);
+    $lama = Indicator::create([
+        'subject_id' => $this->subjek->id, 'name' => 'Penduduk Menurut Agama', 'bps_source' => 'dinamis',
+        'bps_table_id' => '32', 'data' => $this->indikator->data, 'bps_synced_at' => now()->subDay(),
+    ]);
+
+    $this->get(($this->urlDashboard)($lama))->assertOk()->assertSee('Siantar Barat');
+    $this->get("/pengguna/lihatdata/{$lama->id}")->assertOk();
+    $this->get("/pengguna/indicators/{$lama->id}/export/excel")->assertOk();
     Http::assertNothingSent();
 
-    // Pengguna yang login tetap memicu pengambilan data seperti sebelumnya.
-    $this->actingAs($this->biasa)->get("/pengguna/lihatdata/{$this->indikatorBps->id}")->assertOk();
+    // Pengguna yang login tetap menyegarkan seperti sebelumnya.
+    $this->actingAs($this->biasa)->get("/pengguna/lihatdata/{$lama->id}")->assertOk();
     Http::assertSent(fn ($r) => str_contains($r->url(), 'webapi.bps.go.id'));
 });
 
@@ -241,7 +282,8 @@ it('membatasi unduhan dan pembuatan narasi per menit', function () {
     foreach (range(1, 5) as $_) {
         $this->actingAs($this->pj)->postJson('/penanggungjawab/dashboard/generate-narrative', [])->assertStatus(400);
     }
-    $this->actingAs($this->pj)->postJson('/penanggungjawab/dashboard/generate-narrative', [])->assertStatus(429);
+    $this->actingAs($this->pj)->postJson('/penanggungjawab/dashboard/generate-narrative', [])->assertStatus(429)
+        ->assertJsonPath('error', 'Batas 5 permintaan generate narasi per menit tercapai. Tunggu sekitar 1 menit, lalu coba lagi.');
     Http::assertNothingSent();
 });
 
