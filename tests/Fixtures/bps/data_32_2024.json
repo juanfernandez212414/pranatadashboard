@@ -1,0 +1,117 @@
+{
+    "status": "OK",
+    "data-availability": "available",
+    "last_update": "2025-03-17 03:08:28",
+    "subject": [
+        {
+            "val": 519,
+            "label": "Kependudukan dan Migrasi"
+        }
+    ],
+    "var": [
+        {
+            "val": 32,
+            "label": "Penduduk per Kecamatan menurut Jenis Kelamin",
+            "unit": "Jiwa",
+            "subj": "Kependudukan",
+            "def": "",
+            "decimal": null,
+            "note": ""
+        }
+    ],
+    "turvar": [
+        {
+            "val": 27,
+            "label": "Laki-laki"
+        },
+        {
+            "val": 28,
+            "label": "Perempuan"
+        },
+        {
+            "val": 29,
+            "label": "Jumlah"
+        }
+    ],
+    "labelvervar": "Kecamatan",
+    "vervar": [
+        {
+            "val": 10,
+            "label": "SIANTAR MARIHAT"
+        },
+        {
+            "val": 11,
+            "label": "SIANTAR MARIMBUN"
+        },
+        {
+            "val": 20,
+            "label": "SIANTAR SELATAN"
+        },
+        {
+            "val": 30,
+            "label": "SIANTAR BARAT"
+        },
+        {
+            "val": 40,
+            "label": "SIANTAR UTARA"
+        },
+        {
+            "val": 50,
+            "label": "SIANTAR TIMUR"
+        },
+        {
+            "val": 60,
+            "label": "SIANTAR MARTOBA"
+        },
+        {
+            "val": 61,
+            "label": "SIANTAR SITALASARI"
+        },
+        {
+            "val": 1273,
+            "label": "PEMATANGSIANTAR"
+        }
+    ],
+    "tahun": [
+        {
+            "val": 124,
+            "label": "2024"
+        }
+    ],
+    "turtahun": [
+        {
+            "val": 0,
+            "label": "Tahun"
+        }
+    ],
+    "datacontent": {
+        "1032271240": 10668,
+        "1032281240": 10942,
+        "1032291240": 21610,
+        "1132271240": 11299,
+        "1132281240": 11646,
+        "1132291240": 22945,
+        "127332271240": 137006,
+        "127332281240": 140048,
+        "127332291240": 277054,
+        "2032271240": 8152,
+        "2032281240": 8922,
+        "2032291240": 17074,
+        "3032271240": 18634,
+        "3032281240": 19322,
+        "3032291240": 37956,
+        "4032271240": 24953,
+        "4032281240": 24857,
+        "4032291240": 49810,
+        "5032271240": 17444,
+        "5032281240": 19246,
+        "5032291240": 36690,
+        "6032271240": 27314,
+        "6032281240": 27004,
+        "6032291240": 54318,
+        "6132271240": 18542,
+        "6132281240": 18109,
+        "6132291240": 36651
+    },
+    "related": []
+}

@@ -1,0 +1,30 @@
+{
+    "status": "OK",
+    "request": {
+        "domain": "http://siantarkota.bps.go.id",
+        "model": "publication",
+        "lang": "ind",
+        "id": "d16eaeb2fff0805a540b5047"
+    },
+    "data-availability": "available",
+    "data": {
+        "pub_id": "d16eaeb2fff0805a540b5047",
+        "title": "Kecamatan Siantar Barat Dalam Angka 2026",
+        "id_subject_csa": null,
+        "subject_csa": null,
+        "kat_no": "1102001.1273030",
+        "pub_no": "12730.26009",
+        "issn": "3109-8363",
+        "abstract": "Kecamatan Siantar Barat Dalam Angka 2026 merupakan publikasi tahunan yang diterbitkan oleh BPS Kota Pematangsiantar yang berisi data Tahun 2025 dan 2026 ini, merupakan lanjutan Publikasi Kecamatan Siantar Barat sebelumnya. Beberapa tabel utama pada publikasi ini dikelola melalui Sistem Informasi Manajemen Data Statistik Terintegrasi (SIMDASI) untuk mendukung terwujudnya Satu Data Indonesia. Publikasi ini memuat gambaran informasi statistik tentang Kondisi Geografis, Pemerintahan, Kependudukan, Sosial dan Kesejahteraan Rakyat, Pertanian, Transportasi dan Komunikasi, serta Koperasi, dan Perdagangan.",
+        "sch_date": "2026-09-28",
+        "rl_date": "2026-09-28",
+        "updt_date": null,
+        "periode": "Tahunan",
+        "bahasa": "Indonesia dan Inggris",
+        "revisi": 0,
+        "cover": "https://webapi.bps.go.id/cover.php?f=uji",
+        "pdf": "https://webapi.bps.go.id/download.php?f=uji",
+        "size": "10.42 MB",
+        "related": []
+    }
+}

@@ -1,0 +1,91 @@
+{
+    "status": "OK",
+    "data-availability": "available",
+    "last_update": "2025-03-17 03:10:00",
+    "subject": [
+        {
+            "val": 519,
+            "label": "Kependudukan dan Migrasi"
+        }
+    ],
+    "var": [
+        {
+            "val": 31,
+            "label": "Penduduk per kecamatan",
+            "unit": "Jiwa",
+            "subj": "Kependudukan",
+            "def": "",
+            "decimal": 0,
+            "note": ""
+        }
+    ],
+    "turvar": [
+        {
+            "val": "0",
+            "label": "Tidak ada"
+        }
+    ],
+    "labelvervar": "Kecamatan",
+    "vervar": [
+        {
+            "val": 10,
+            "label": "SIANTAR MARIHAT"
+        },
+        {
+            "val": 11,
+            "label": "SIANTAR MARIMBUN"
+        },
+        {
+            "val": 20,
+            "label": "SIANTAR SELATAN"
+        },
+        {
+            "val": 30,
+            "label": "SIANTAR BARAT"
+        },
+        {
+            "val": 40,
+            "label": "SIANTAR UTARA"
+        },
+        {
+            "val": 50,
+            "label": "SIANTAR TIMUR"
+        },
+        {
+            "val": 60,
+            "label": "SIANTAR MARTOBA"
+        },
+        {
+            "val": 61,
+            "label": "SIANTAR SITALASARI"
+        },
+        {
+            "val": 1273,
+            "label": "PEMATANGSIANTAR"
+        }
+    ],
+    "tahun": [
+        {
+            "val": 120,
+            "label": "2020"
+        }
+    ],
+    "turtahun": [
+        {
+            "val": 0,
+            "label": "Tahun"
+        }
+    ],
+    "datacontent": {
+        "103101200": 20933,
+        "113101200": 20675,
+        "12733101200": 268254,
+        "203101200": 17447,
+        "303101200": 37896,
+        "403101200": 49886,
+        "503101200": 36744,
+        "603101200": 50350,
+        "613101200": 34323
+    },
+    "related": []
+}

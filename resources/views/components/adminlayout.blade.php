@@ -142,6 +142,19 @@
                         </div>
                     </li>
 
+                    {{-- Data API BPS --}}
+                    <li>
+                        @php $isDataBps = request()->routeIs('admin.databps*'); @endphp
+                        <a href="{{ route('admin.databps') }}"
+                            class="w-full flex items-center gap-3 p-3 rounded-xl {{ $isDataBps ? 'bg-[#002D72] text-white' : 'bg-gray-50 text-gray-600' }} hover:bg-[#002D72] hover:text-white transition-all duration-200 cursor-pointer">
+                            <svg class="w-[19px] h-[19px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                                    d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
+                            </svg>
+                            <span class="font-medium text-[12px]">Data API BPS</span>
+                        </a>
+                    </li>
+
                     {{-- Pengguna --}}
                     <li>
                         @php $isPengguna = request()->routeIs('admin.pengguna'); @endphp

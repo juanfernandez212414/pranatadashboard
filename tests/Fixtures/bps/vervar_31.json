@@ -1,0 +1,78 @@
+{
+    "status": "OK",
+    "data-availability": "available",
+    "data": [
+        {
+            "page": 1,
+            "pages": 1,
+            "per_page": 10,
+            "count": 9,
+            "total": 9
+        },
+        [
+            {
+                "kode_ver_id": 10,
+                "vervar": "SIANTAR MARIHAT",
+                "item_ver_id": 188,
+                "group_ver_id": 1,
+                "name_group_ver_id": "Kecamatan"
+            },
+            {
+                "kode_ver_id": 11,
+                "vervar": "SIANTAR MARIMBUN",
+                "item_ver_id": 189,
+                "group_ver_id": 1,
+                "name_group_ver_id": "Kecamatan"
+            },
+            {
+                "kode_ver_id": 20,
+                "vervar": "SIANTAR SELATAN",
+                "item_ver_id": 190,
+                "group_ver_id": 1,
+                "name_group_ver_id": "Kecamatan"
+            },
+            {
+                "kode_ver_id": 30,
+                "vervar": "SIANTAR BARAT",
+                "item_ver_id": 191,
+                "group_ver_id": 1,
+                "name_group_ver_id": "Kecamatan"
+            },
+            {
+                "kode_ver_id": 40,
+                "vervar": "SIANTAR UTARA",
+                "item_ver_id": 192,
+                "group_ver_id": 1,
+                "name_group_ver_id": "Kecamatan"
+            },
+            {
+                "kode_ver_id": 50,
+                "vervar": "SIANTAR TIMUR",
+                "item_ver_id": 193,
+                "group_ver_id": 1,
+                "name_group_ver_id": "Kecamatan"
+            },
+            {
+                "kode_ver_id": 60,
+                "vervar": "SIANTAR MARTOBA",
+                "item_ver_id": 194,
+                "group_ver_id": 1,
+                "name_group_ver_id": "Kecamatan"
+            },
+            {
+                "kode_ver_id": 61,
+                "vervar": "SIANTAR SITALASARI",
+                "item_ver_id": 195,
+                "group_ver_id": 1,
+                "name_group_ver_id": "Kecamatan"
+            },
+            {
+                "kode_ver_id": 1273,
+                "vervar": "PEMATANGSIANTAR",
+                "item_ver_id": 1,
+                "group_ver_id": 1,
+                "name_group_ver_id": "Kecamatan"
+            }
+        ]
+    ]
+}

@@ -1,0 +1,111 @@
+{
+    "status": "OK",
+    "data-availability": "available",
+    "last_update": "2025-10-14 10:24:17",
+    "subject": [
+        {
+            "val": 536,
+            "label": "Harga-Harga"
+        }
+    ],
+    "var": [
+        {
+            "val": 1,
+            "label": "Inflasi",
+            "unit": "Persen",
+            "subj": "Inflasi",
+            "def": "",
+            "decimal": null,
+            "note": ""
+        }
+    ],
+    "turvar": [
+        {
+            "val": "0",
+            "label": "Tidak ada"
+        }
+    ],
+    "labelvervar": "Wilayah Inflasi",
+    "vervar": [
+        {
+            "val": 1273,
+            "label": "Kota Pematangsiantar"
+        }
+    ],
+    "tahun": [
+        {
+            "val": 124,
+            "label": "2024"
+        }
+    ],
+    "turtahun": [
+        {
+            "val": 1,
+            "label": "Januari"
+        },
+        {
+            "val": 2,
+            "label": "Februari"
+        },
+        {
+            "val": 3,
+            "label": "Maret"
+        },
+        {
+            "val": 4,
+            "label": "April"
+        },
+        {
+            "val": 5,
+            "label": "Mei"
+        },
+        {
+            "val": 6,
+            "label": "Juni"
+        },
+        {
+            "val": 7,
+            "label": "Juli"
+        },
+        {
+            "val": 8,
+            "label": "Agustus"
+        },
+        {
+            "val": 9,
+            "label": "September"
+        },
+        {
+            "val": 10,
+            "label": "Oktober"
+        },
+        {
+            "val": 11,
+            "label": "November"
+        },
+        {
+            "val": 12,
+            "label": "Desember"
+        },
+        {
+            "val": 13,
+            "label": "Tahunan"
+        }
+    ],
+    "datacontent": {
+        "1273101241": 0.88,
+        "12731012410": 0.39,
+        "12731012411": 0.41,
+        "12731012412": 0.46,
+        "12731012413": 2.86,
+        "1273101242": 0.34,
+        "1273101243": 0.61,
+        "1273101244": -0.19,
+        "1273101245": 0.58,
+        "1273101246": -0.55,
+        "1273101247": -0.31,
+        "1273101248": 0.1,
+        "1273101249": 0.09
+    },
+    "related": []
+}

@@ -11,6 +11,7 @@ use App\Http\Controllers\DataController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\ModelController;
+use App\Http\Controllers\DataBpsController;
 
 /*
 |--------------------------------------------------------------------------
@@ -105,6 +106,13 @@ Route::middleware(['auth', 'area.role'])->group(function () {
     Route::delete('/admin/indicators/{indicator}', [DataController::class, 'destroyIndicator'])->name('admin.indicators.destroy');
     Route::post('/admin/indicators/import', [DataController::class, 'importIndicator'])->name('admin.indicators.import');
 
+    // Data API BPS (tabel dinamis & publikasi dari WebAPI BPS)
+    Route::get('/admin/data-bps', [DataBpsController::class, 'index'])->name('admin.databps');
+    Route::get('/admin/data-bps/dinamis/{var}/pilihan', [DataBpsController::class, 'pilihanDinamis'])->whereNumber('var')->name('admin.databps.dinamis.pilihan');
+    Route::get('/admin/data-bps/dinamis/hasil', [DataBpsController::class, 'hasilDinamis'])->name('admin.databps.dinamis.hasil');
+    Route::post('/admin/data-bps/tabel', [DataBpsController::class, 'simpanTabel'])->name('admin.databps.tabel.simpan');
+    Route::post('/admin/data-bps/publikasi/{id}', [DataBpsController::class, 'simpanPublikasi'])->name('admin.databps.publikasi.simpan');
+
     // Manajemen Pengguna
     Route::get('/admin/pengguna', [UserController::class, 'index'])->name('admin.pengguna');
     Route::post('/admin/pengguna', [UserController::class, 'store'])->name('admin.pengguna.store');
@@ -165,6 +173,13 @@ Route::middleware(['auth', 'area.role'])->group(function () {
         Route::patch('/indicators/{indicator}', [DataController::class, 'updateIndicator'])->name('indicators.update');
         Route::delete('/indicators/{indicator}', [DataController::class, 'destroyIndicator'])->name('indicators.destroy');
         Route::post('/indicators/import', [DataController::class, 'importIndicator'])->name('indicators.import');
+
+        // Data API BPS (tabel dinamis & publikasi dari WebAPI BPS)
+        Route::get('/data-bps', [DataBpsController::class, 'index'])->name('databps');
+        Route::get('/data-bps/dinamis/{var}/pilihan', [DataBpsController::class, 'pilihanDinamis'])->whereNumber('var')->name('databps.dinamis.pilihan');
+        Route::get('/data-bps/dinamis/hasil', [DataBpsController::class, 'hasilDinamis'])->name('databps.dinamis.hasil');
+        Route::post('/data-bps/tabel', [DataBpsController::class, 'simpanTabel'])->name('databps.tabel.simpan');
+        Route::post('/data-bps/publikasi/{id}', [DataBpsController::class, 'simpanPublikasi'])->name('databps.publikasi.simpan');
 
         // Konfigurasi Model AI (Sesuai Sidebar)
         Route::get('/model/check-status', [ModelController::class, 'checkStatus'])->name('model.checkStatus');

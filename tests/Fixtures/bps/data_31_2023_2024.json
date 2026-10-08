@@ -1,0 +1,104 @@
+{
+    "status": "OK",
+    "data-availability": "available",
+    "last_update": "2025-03-17 03:10:00",
+    "subject": [
+        {
+            "val": 519,
+            "label": "Kependudukan dan Migrasi"
+        }
+    ],
+    "var": [
+        {
+            "val": 31,
+            "label": "Penduduk per kecamatan",
+            "unit": "Jiwa",
+            "subj": "Kependudukan",
+            "def": "",
+            "decimal": 0,
+            "note": ""
+        }
+    ],
+    "turvar": [
+        {
+            "val": "0",
+            "label": "Tidak ada"
+        }
+    ],
+    "labelvervar": "Kecamatan",
+    "vervar": [
+        {
+            "val": 10,
+            "label": "SIANTAR MARIHAT"
+        },
+        {
+            "val": 11,
+            "label": "SIANTAR MARIMBUN"
+        },
+        {
+            "val": 20,
+            "label": "SIANTAR SELATAN"
+        },
+        {
+            "val": 30,
+            "label": "SIANTAR BARAT"
+        },
+        {
+            "val": 40,
+            "label": "SIANTAR UTARA"
+        },
+        {
+            "val": 50,
+            "label": "SIANTAR TIMUR"
+        },
+        {
+            "val": 60,
+            "label": "SIANTAR MARTOBA"
+        },
+        {
+            "val": 61,
+            "label": "SIANTAR SITALASARI"
+        },
+        {
+            "val": 1273,
+            "label": "PEMATANGSIANTAR"
+        }
+    ],
+    "tahun": [
+        {
+            "val": 123,
+            "label": "2023"
+        },
+        {
+            "val": 124,
+            "label": "2024"
+        }
+    ],
+    "turtahun": [
+        {
+            "val": 0,
+            "label": "Tahun"
+        }
+    ],
+    "datacontent": {
+        "103101230": 21484,
+        "103101240": 21610,
+        "113101230": 21684,
+        "113101240": 22945,
+        "12733101230": 274838,
+        "12733101240": 277054,
+        "203101230": 17588,
+        "203101240": 17074,
+        "303101230": 38249,
+        "303101240": 37956,
+        "403101230": 50300,
+        "403101240": 49810,
+        "503101230": 37041,
+        "503101240": 36690,
+        "603101230": 52705,
+        "603101240": 54318,
+        "613101230": 35787,
+        "613101240": 36651
+    },
+    "related": []
+}

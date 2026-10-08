@@ -41,4 +41,13 @@ return [
         'redirect' => env('APP_URL') . '/auth/google/callback', // Menggunakan APP_URL dari .env
     ],
 
+    // WebAPI BPS: sumber tabel statistik & publikasi (dipakai App\Services\Bps\BpsApiClient).
+    'bps' => [
+        'key' => env('BPS_API_KEY'),
+        'url' => env('BPS_API_URL', 'https://webapi.bps.go.id/v1/api'),
+        'domain' => env('BPS_DOMAIN', '1273'),                    // 1273 = Kota Pematangsiantar
+        'cache_menit' => (int) env('BPS_CACHE_MENIT', 360),       // lama respons API disimpan di cache
+        'timeout' => (int) env('BPS_TIMEOUT', 25),                // detik per permintaan
+    ],
+
 ];

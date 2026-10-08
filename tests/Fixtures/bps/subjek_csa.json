@@ -1,0 +1,348 @@
+{
+    "status": "OK",
+    "data-availability": "available",
+    "data": [
+        {
+            "page": 1,
+            "pages": 1,
+            "per_page": 37,
+            "count": 37,
+            "total": 37
+        },
+        [
+            {
+                "sub_id": 528,
+                "title": "Aktivitas Politik dan Komunitas Lainnya",
+                "subcat_id": 514,
+                "subcat": "Statistik Demografi dan Sosial",
+                "ntabel": 2,
+                "desc": "statistik jumlah pemilih, partisipasi dalam kegiatan politik dan masyarakat lainnya, keanggotaan serikat pekerja, dialog sosial, masyarakat sipil, modal sosial, dll.",
+                "icon": "http://webapi.bps.go.id/v1/images/subject/528.svg"
+            },
+            {
+                "sub_id": 527,
+                "title": "Budaya",
+                "subcat_id": 514,
+                "subcat": "Statistik Demografi dan Sosial",
+                "ntabel": 0,
+                "desc": "statistik yang berhubungan dengan kegiatan budaya dalam masyarakat, seperti teater, bioskop, museum, perpustakaan, media massa, produksi buku, olahraga, dll., termasuk pengeluaran dan pembiayaan budaya.",
+                "icon": "http://webapi.bps.go.id/v1/images/subject/527.svg"
+            },
+            {
+                "sub_id": 526,
+                "title": "Hukum dan Kriminal",
+                "subcat_id": 514,
+                "subcat": "Statistik Demografi dan Sosial",
+                "ntabel": 2,
+                "desc": "kegiatan termasuk kejahatan, hukuman, pengoperasian sistem peradilan pidana, keadilan, keselamatan, korban, tingkat pembersihan, populasi penjara, produksi obat-obatan terlarang, perdagangan dan penggunaan, dll.",
+                "icon": "http://webapi.bps.go.id/v1/images/subject/526.svg"
+            },
+            {
+                "sub_id": 519,
+                "title": "Kependudukan dan Migrasi",
+                "subcat_id": 514,
+                "subcat": "Statistik Demografi dan Sosial",
+                "ntabel": 42,
+                "desc": "mencakup pekerjaan dalam statistik populasi dan demografis, topik seperti demografi, statistik vital, struktur dan pertumbuhan populasi, proyeksi demografis, keluarga dan rumah tangga (perkawinan, perceraian, ukuran rumah tangga), migrasi, pengungsi, dan pencari suaka.",
+                "icon": "http://webapi.bps.go.id/v1/images/subject/519.svg"
+            },
+            {
+                "sub_id": 522,
+                "title": "Kesehatan",
+                "subcat_id": 514,
+                "subcat": "Statistik Demografi dan Sosial",
+                "ntabel": 20,
+                "desc": "mencakup aktivitas statistik terkait kesehatan dan kematian, termasuk topik seperti harapan hidup, status kesehatan, kesehatan dan keselamatan, penentu kesehatan (termasuk gaya hidup, nutrisi, merokok, penyalahgunaan alkohol), sumber daya dan pengeluaran kesehatan, sistem perawatan kesehatan, morbiditas dan mortalitas (termasuk kematian bayi dan anak), masuk rumah sakit, penyebab penyakit dan kematian, penyakit tertentu (misalnya AIDS), kecacatan, konsumsi dan penjualan farmasi, tenaga kesehatan, remunerasi profesi kesehatan, status kesehatan lingkungan, ketidaksetaraan kesehatan, neraca kesehatan.",
+                "icon": "http://webapi.bps.go.id/v1/images/subject/522.svg"
+            },
+            {
+                "sub_id": 523,
+                "title": "Konsumsi dan Pendapatan",
+                "subcat_id": 514,
+                "subcat": "Statistik Demografi dan Sosial",
+                "ntabel": 6,
+                "desc": "mencakup statistik pendapatan dan pengeluaran rumah tangga dari sudut pandang rumah tangga (semua jenis pendapatan dan pengeluaran), termasuk topik seperti distribusi pendapatan, pendapatan dalam bentuk natura, transfer pendapatan yang diterima dan dibayarkan, pengukuran kemiskinan berbasis pendapatan atau pengeluaran, perlindungan konsumen, pola konsumsi, barang konsumsi dan barang tahan lama, kekayaan dan utang rumah tangga.",
+                "icon": "http://webapi.bps.go.id/v1/images/subject/523.svg"
+            },
+            {
+                "sub_id": 525,
+                "title": "Pemukiman dan Perumahan",
+                "subcat_id": 514,
+                "subcat": "Statistik Demografi dan Sosial",
+                "ntabel": 2,
+                "desc": "mencakup kegiatan statistik tentang perumahan, tempat tinggal, dan pemukiman manusia.",
+                "icon": "http://webapi.bps.go.id/v1/images/subject/525.svg"
+            },
+            {
+                "sub_id": 521,
+                "title": "Pendidikan",
+                "subcat_id": 514,
+                "subcat": "Statistik Demografi dan Sosial",
+                "ntabel": 37,
+                "desc": "termasuk partisipasi pendidikan, buta huruf, lembaga dan sistem pendidikan, sumber daya manusia dan keuangan yang diinvestasikan dalam pendidikan, pembelajaran seumur hidup, pelatihan kejuruan dan pembelajaran orang dewasa, dampak pendidikan, penilaian kinerja siswa, dll.",
+                "icon": "http://webapi.bps.go.id/v1/images/subject/521.svg"
+            },
+            {
+                "sub_id": 529,
+                "title": "Penggunaan Waktu",
+                "subcat_id": 514,
+                "subcat": "Statistik Demografi dan Sosial",
+                "ntabel": 0,
+                "desc": "statistik tentang penggunaan waktu oleh individu, seringkali terkait dengan keseimbangan kehidupan kerja (rekonsiliasi tanggung jawab keluarga dan pekerjaan berbayar); pekerjaan yang tidak dibayar.",
+                "icon": "http://webapi.bps.go.id/v1/images/subject/529.svg"
+            },
+            {
+                "sub_id": 524,
+                "title": "Perlindungan Sosial",
+                "subcat_id": 514,
+                "subcat": "Statistik Demografi dan Sosial",
+                "ntabel": 0,
+                "desc": "berurusan dengan statistik tentang langkah-langkah untuk melindungi orang dari risiko pendapatan yang tidak memadai terkait dengan pengangguran, kesehatan yang buruk, cacat, usia tua, tanggung jawab orang tua, atau pendapatan yang tidak memadai setelah kehilangan pasangan atau orang tua, dll., termasuk statistik tentang penerima pensiun, skema jaminan sosial, pengeluaran perlindungan sosial, dll.",
+                "icon": "http://webapi.bps.go.id/v1/images/subject/524.svg"
+            },
+            {
+                "sub_id": 520,
+                "title": "Tenaga Kerja",
+                "subcat_id": 514,
+                "subcat": "Statistik Demografi dan Sosial",
+                "ntabel": 15,
+                "desc": "mencakup statistik tentang angkatan kerja, pasar tenaga kerja, lapangan kerja dan pengangguran; topik yang lebih rinci meliputi populasi yang aktif secara ekonomi, kondisi tenaga kerja, kesehatan dan keselamatan di tempat kerja (kecelakaan di tempat kerja, cedera dan penyakit akibat kerja, masalah kesehatan terkait pekerjaan), waktu kerja dan kondisi kerja lainnya, pemogokan dan larangan bekerja, lowongan pekerjaan, penciptaan lapangan kerja .",
+                "icon": "http://webapi.bps.go.id/v1/images/subject/520.svg"
+            },
+            {
+                "sub_id": 537,
+                "title": "Biaya Tenaga Kerja",
+                "subcat_id": 515,
+                "subcat": "Statistik Ekonomi",
+                "ntabel": 0,
+                "desc": "kegiatan statistik tentang biaya tenaga kerja, penghasilan dan upah, baik untuk statistik struktural maupun jangka pendek.",
+                "icon": "http://webapi.bps.go.id/v1/images/subject/537.svg"
+            },
+            {
+                "sub_id": 558,
+                "title": "Energi",
+                "subcat_id": 515,
+                "subcat": "Statistik Ekonomi",
+                "ntabel": 3,
+                "desc": "pasokan energi, penggunaan energi, keseimbangan energi, keamanan pasokan, pasar energi, perdagangan energi, efisiensi energi, sumber energi terbarukan, pengeluaran pemerintah untuk energi.",
+                "icon": "http://webapi.bps.go.id/v1/images/subject/558.svg"
+            },
+            {
+                "sub_id": 536,
+                "title": "Harga-Harga",
+                "subcat_id": 515,
+                "subcat": "Statistik Ekonomi",
+                "ntabel": 13,
+                "desc": "mencakup semua aktivitas statistik yang berhubungan dengan harga, termasuk Paritas Daya Beli (PPP) dan perbandingan PDB internasional, mencakup topik seperti Indeks Harga Konsumen (CPI), inflasi, Indeks Harga Produsen (PPI), indeks harga untuk produk dan layanan tertentu ( misalnya produk Teknologi Informasi dan Komunikasi).",
+                "icon": "http://webapi.bps.go.id/v1/images/subject/536.svg"
+            },
+            {
+                "sub_id": 538,
+                "title": "Ilmu Pengetahuan, Teknologi, dan Inovasi",
+                "subcat_id": 515,
+                "subcat": "Statistik Ekonomi",
+                "ntabel": 0,
+                "desc": "termasuk Penelitian dan Pengembangan (R&D), inovasi, paten, sumber daya manusia (dalam sains, teknologi, dan inovasi), industri teknologi tinggi dan layanan berbasis pengetahuan, bioteknologi, pembiayaan R&D, dan inovasi.",
+                "icon": "http://webapi.bps.go.id/v1/images/subject/538.svg"
+            },
+            {
+                "sub_id": 534,
+                "title": "Keuangan Pemerintah, Fiskal dan Statistik Sektor Publik",
+                "subcat_id": 515,
+                "subcat": "Statistik Ekonomi",
+                "ntabel": 19,
+                "desc": "semua statistik yang terkait dengan sektor pemerintah, termasuk utang dan defisit, pendapatan dan pengeluaran, rekening sektor pemerintah, pemerintah pusat, tarif dan pendapatan pajak, sistem pajak dan manfaat, pembiayaan pensiun negara dan skema jaminan sosial negara lainnya, pekerjaan sektor publik.",
+                "icon": "http://webapi.bps.go.id/v1/images/subject/534.svg"
+            },
+            {
+                "sub_id": 531,
+                "title": "Neraca Ekonomi",
+                "subcat_id": 515,
+                "subcat": "Statistik Ekonomi",
+                "ntabel": 49,
+                "desc": "mencakup pekerjaan pada Neraca Ekonomi dengan harga saat ini dan konstan, berurusan dengan topik-topik seperti implementasi Sistem Neraca Ekonomi, Produk Domestik Bruto (PDB), Pendapatan Nasional Bruto (PDB), perekonomian non-observed dan informal, pengukuran modal, tabel input-output, neraca, dll.",
+                "icon": "http://webapi.bps.go.id/v1/images/subject/531.svg"
+            },
+            {
+                "sub_id": 561,
+                "title": "Pariwisata",
+                "subcat_id": 515,
+                "subcat": "Statistik Ekonomi",
+                "ntabel": 2,
+                "desc": "mencakup statistik mengenai aktivitas pengunjung (seperti kedatangan/keberangkatan, menginap semalam, pengeluaran, tujuan kunjungan, dll.) yang terkait dengan berbagai bentuk\npariwisata (inbound, domestik dan outbound), kegiatan industri pariwisata dan infrastruktur, ketenagakerjaan dan akun satelit pariwisata.",
+                "icon": "http://webapi.bps.go.id/v1/images/subject/561.svg"
+            },
+            {
+                "sub_id": 562,
+                "title": "Perbankan, Asuransi dan Finansial",
+                "subcat_id": 515,
+                "subcat": "Statistik Ekonomi",
+                "ntabel": 1,
+                "desc": "statistik uang, perbankan dan pasar keuangan, termasuk rekening keuangan, jumlah uang beredar, suku bunga, nilai tukar, indikator pasar saham, sekuritas, profitabilitas bank, asuransi sektor swasta dan statistik dana pensiun, Indikator Kesehatan Keuangan.",
+                "icon": "http://webapi.bps.go.id/v1/images/subject/562.svg"
+            },
+            {
+                "sub_id": 535,
+                "title": "Perdagangan Internasional dan Neraca Pembayaran",
+                "subcat_id": 515,
+                "subcat": "Statistik Ekonomi",
+                "ntabel": 0,
+                "desc": "berurusan dengan statistik semua transaksi lintas batas yang dicatat dalam neraca pembayaran, termasuk topik seperti perdagangan barang dan jasa, posisi dan utang eksternal, investasi asing langsung, perdagangan afiliasi asing, tarif, akses pasar, bantuan luar negeri , bantuan pembangunan, aliran sumber daya ke negara-negara berkembang.",
+                "icon": "http://webapi.bps.go.id/v1/images/subject/535.svg"
+            },
+            {
+                "sub_id": 559,
+                "title": "Pertambangan, Manufaktur, Konstruksi",
+                "subcat_id": 515,
+                "subcat": "Statistik Ekonomi",
+                "ntabel": 6,
+                "desc": "statistik kegiatan industri tertentu, mis. baja, galangan kapal, dan konstruksi, memperdagangkan produk khusus yang terkait dengan pertambangan, manufaktur, dan konstruksi.",
+                "icon": "http://webapi.bps.go.id/v1/images/subject/559.svg"
+            },
+            {
+                "sub_id": 557,
+                "title": "Pertanian, Kehutanan, Perikanan",
+                "subcat_id": 515,
+                "subcat": "Statistik Ekonomi",
+                "ntabel": 24,
+                "desc": "mencakup semua statistik terkait pertanian, kehutanan, dan perikanan, mis. statistik moneter pertanian (akun ekonomi pertanian), struktur pertanian (struktur pertanian), perdagangan produk pertanian, input tenaga kerja pertanian, produksi tanaman dan hewan, komoditas pertanian, statistik agroindustri (termasuk produksi dan keamanan pangan), pertanian organik dan pangan organik , pengeluaran pemerintah untuk pertanian, perikanan dan kehutanan, tabel sumber dan penggunaan produk, statistik hasil hutan dan hutan, penilaian sumber daya hutan dan kebakaran hutan, perdagangan hasil hutan, perikanan.",
+                "icon": "http://webapi.bps.go.id/v1/images/subject/557.svg"
+            },
+            {
+                "sub_id": 532,
+                "title": "Statistik Bisnis",
+                "subcat_id": 515,
+                "subcat": "Statistik Ekonomi",
+                "ntabel": 0,
+                "desc": "statistik ekonomi luas tentang kegiatan perusahaan, mencakup pekerjaan pada statistik ekonomi di berbagai sektor, berkaitan dengan topik seperti statistik kegiatan ekonomi perusahaan, demografi bisnis, investasi bisnis, layanan bisnis, permintaan layanan, kinerja industri, kelompok perusahaan , produksi industri, komoditas, struktur penjualan dan jasa, hasil industri jasa, lembaga nirlaba.",
+                "icon": "http://webapi.bps.go.id/v1/images/subject/532.svg"
+            },
+            {
+                "sub_id": 530,
+                "title": "Statistik Makroekonomi",
+                "subcat_id": 515,
+                "subcat": "Statistik Ekonomi",
+                "ntabel": 0,
+                "desc": "semua kegiatan yang berkaitan dengan statistik ekonomi secara luas pada tingkat makro, atau berbeda dari Neraca Nasional, baik tahunan, triwulanan, atau bulanan. Contohnya adalah database ekonomi makro yang menggabungkan akun nasional dan indikator ekonomi makro lainnya seperti Indikator Ekonomi Utama (OECD), dll.; kecenderungan bisnis dan survei pendapat konsumen, pertumbuhan ekonomi, stabilitas dan penyesuaian struktural, indikator siklus, statistik untuk analisis siklus bisnis.",
+                "icon": "http://webapi.bps.go.id/v1/images/subject/530.svg"
+            },
+            {
+                "sub_id": 533,
+                "title": "Statistik sektoral",
+                "subcat_id": 515,
+                "subcat": "Statistik Ekonomi",
+                "ntabel": 0,
+                "desc": "kegiatan statistik yang berhubungan dengan salah satu cabang industri atau layanan tertentu yang disebutkan pada tingkat klasifikasi tiga digit.",
+                "icon": "http://webapi.bps.go.id/v1/images/subject/533.svg"
+            },
+            {
+                "sub_id": 560,
+                "title": "Transportasi",
+                "subcat_id": 515,
+                "subcat": "Statistik Ekonomi",
+                "ntabel": 6,
+                "desc": "mencakup statistik semua moda transportasi (udara, kereta api, jalan raya, perairan darat, laut), termasuk topik seperti infrastruktur transportasi, peralatan, arus lalu lintas, mobilitas pribadi, keselamatan, konsumsi energi, perusahaan transportasi, angkutan penumpang dan barang, transportasi tren sektor, kecelakaan lalu lintas jalan.",
+                "icon": "http://webapi.bps.go.id/v1/images/subject/560.svg"
+            },
+            {
+                "sub_id": 542,
+                "title": "Buku Tahunan dan Ringkasan Sejenis",
+                "subcat_id": 516,
+                "subcat": "Statistik Lingkungan Hidup dan Multi-domain",
+                "ntabel": 0,
+                "desc": "publikasi statistik multi-domain, basis data, dan produk data lainnya tanpa fokus tematik atau berorientasi masalah tertentu.",
+                "icon": "http://webapi.bps.go.id/v1/images/subject/542.svg"
+            },
+            {
+                "sub_id": 564,
+                "title": "Gender dan Kelompok Populasi Khusus",
+                "subcat_id": 516,
+                "subcat": "Statistik Lingkungan Hidup dan Multi-domain",
+                "ntabel": 4,
+                "desc": "kondisi kehidupan dan peran mereka dalam masyarakat: perbandingan laki-laki/perempuan dan situasi kelompok populasi khusus seperti anak-anak, remaja, perempuan, lanjut usia, orang cacat, kelompok minoritas, dll.",
+                "icon": "http://webapi.bps.go.id/v1/images/subject/564.svg"
+            },
+            {
+                "sub_id": 566,
+                "title": "Globalisasi",
+                "subcat_id": 516,
+                "subcat": "Statistik Lingkungan Hidup dan Multi-domain",
+                "ntabel": 0,
+                "desc": "berurusan dengan mengukur aktivitas ekonomi perusahaan multinasional, serta dengan upaya untuk mengukur globalisasi melalui berbagai komponen dari bidang studi lainnya.",
+                "icon": "http://webapi.bps.go.id/v1/images/subject/566.svg"
+            },
+            {
+                "sub_id": 567,
+                "title": "Indikator Millenium Development Goals (MDGs)",
+                "subcat_id": 516,
+                "subcat": "Statistik Lingkungan Hidup dan Multi-domain",
+                "ntabel": 0,
+                "desc": "mengerjakan serangkaian indikator untuk memantau pencapaian Tujuan Pembangunan Milenium yang disepakati di KTT Milenium PBB.",
+                "icon": "http://webapi.bps.go.id/v1/images/subject/567.svg"
+            },
+            {
+                "sub_id": 569,
+                "title": "Kewiraswastaan",
+                "subcat_id": 516,
+                "subcat": "Statistik Lingkungan Hidup dan Multi-domain",
+                "ntabel": 0,
+                "desc": "pengukuran determinan, kinerja dan dampak kegiatan kewirausahaan orang dan organisasi.",
+                "icon": "http://webapi.bps.go.id/v1/images/subject/569.svg"
+            },
+            {
+                "sub_id": 563,
+                "title": "Kondisi Tempat Tinggal, Kemiskinan, dan Permasalahan Sosial Lintas Sektor",
+                "subcat_id": 516,
+                "subcat": "Statistik Lingkungan Hidup dan Multi-domain",
+                "ntabel": 11,
+                "desc": "termasuk pekerjaan pada metode multidimensi untuk mengukur kemiskinan, kondisi kehidupan dalam arti luas, inklusi/eksklusi sosial, indikator sosial, dan situasi sosial.",
+                "icon": "http://webapi.bps.go.id/v1/images/subject/563.svg"
+            },
+            {
+                "sub_id": 539,
+                "title": "Lingkungan",
+                "subcat_id": 516,
+                "subcat": "Statistik Lingkungan Hidup dan Multi-domain",
+                "ntabel": 5,
+                "desc": "termasuk topik seperti iklim, perubahan iklim (termasuk pengukuran aspek sosial ekonomi dari dampak perubahan iklim, kerentanan dan adaptasi), keanekaragaman hayati, lingkungan dan kesehatan, sumber daya alam, tanah, air, udara, lanskap, limbah, pengeluaran lingkungan, pengeluaran untuk perlindungan lingkungan, neraca lingkungan, indikator agri-lingkungan, tekanan lingkungan, dampak lingkungan dari industri, transportasi, energi dll., pemantauan lingkungan, analisis aliran material, indikator decoupling lingkungan, polusi, ekosistem, penggunaan dan tutupan lahan, perlindungan lingkungan, kawasan lindung nasional.",
+                "icon": "http://webapi.bps.go.id/v1/images/subject/539.svg"
+            },
+            {
+                "sub_id": 565,
+                "title": "Masyarakat Informasi",
+                "subcat_id": 516,
+                "subcat": "Statistik Lingkungan Hidup dan Multi-domain",
+                "ntabel": 4,
+                "desc": "statistik yang memungkinkan untuk menilai penggunaan dan dampak teknologi informasi dan komunikasi pada masyarakat, termasuk akses dan penggunaan TIK (termasuk Internet), pengeluaran dan investasi TIK, infrastruktur TIK, jaringan telekomunikasi, komunikasi elektronik, e-government, perdagangan elektronik , e-learning, penetrasi broadband, layanan TIK, tarif komunikasi, infrastruktur jaringan, pendapatan, pengeluaran dan investasi operator, indikator Internet, perdagangan peralatan telekomunikasi.",
+                "icon": "http://webapi.bps.go.id/v1/images/subject/565.svg"
+            },
+            {
+                "sub_id": 568,
+                "title": "Pembangunan Berkelanjutan",
+                "subcat_id": 516,
+                "subcat": "Statistik Lingkungan Hidup dan Multi-domain",
+                "ntabel": 0,
+                "desc": "mengerjakan indikator dan kerangka kerja untuk memantau dimensi ekonomi, sosial dan lingkungan dari pembangunan berkelanjutan.",
+                "icon": "http://webapi.bps.go.id/v1/images/subject/568.svg"
+            },
+            {
+                "sub_id": 541,
+                "title": "Statistik dan Indikator Multi-Domain",
+                "subcat_id": 516,
+                "subcat": "Statistik Lingkungan Hidup dan Multi-domain",
+                "ntabel": 0,
+                "desc": "berurusan dengan pekerjaan konseptual atau data berdasarkan pendekatan tematik khusus untuk keluaran yang melintasi beberapa bidang studi ekonomi, sosial atau lingkungan.",
+                "icon": "http://webapi.bps.go.id/v1/images/subject/541.svg"
+            },
+            {
+                "sub_id": 540,
+                "title": "Statistik Regional dan Statistik Area Kecil",
+                "subcat_id": 516,
+                "subcat": "Statistik Lingkungan Hidup dan Multi-domain",
+                "ntabel": 21,
+                "desc": "kegiatan yang berkaitan dengan statistik regional dan statistik yang mengacu pada wilayah sub-nasional atau wilayah berdasarkan unit administrasi, statistik perkotaan dan pedesaan, pembangunan pedesaan, akun regional, tipologi regional, dan kesenjangan regional.",
+                "icon": "http://webapi.bps.go.id/v1/images/subject/540.svg"
+            }
+        ]
+    ]
+}
