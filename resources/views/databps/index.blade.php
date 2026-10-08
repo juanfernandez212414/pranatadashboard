@@ -30,6 +30,29 @@
                 @if ($otomatis['terakhir'])
                     <p class="text-xs text-gray-500">Data terakhir diambil dari API: {{ \Illuminate\Support\Carbon::parse($otomatis['terakhir'])->format('d-m-Y H:i') }}</p>
                 @endif
+                @if ($otomatis['kandidat'])
+                    <details class="text-sm text-gray-600 pt-1" open>
+                        <summary class="cursor-pointer text-[#002D72] font-medium">
+                            {{ count($otomatis['kandidat']) }} indikator lama bernama sama dengan tabel dinamis BPS
+                        </summary>
+                        <p class="mt-1 text-xs text-gray-500">
+                            Indikator ini dibuat manual/impor Excel. Pilih "Pakai data API" agar datanya diganti data tabel dinamis BPS
+                            (seluruh tahun) setiap kali dibuka. Nama, subjek, dan narasinya tetap.
+                        </p>
+                        <ul class="mt-2 space-y-1">
+                            @foreach ($otomatis['kandidat'] as $k)
+                                <li class="flex flex-wrap items-center gap-2">
+                                    <span>{{ $k['indikator']['name'] }}<span class="text-gray-400"> · {{ $k['indikator']['subjek'] }}</span></span>
+                                    <form method="POST" action="{{ route($rute . 'databps.tautkan', $k['indikator']['id']) }}"
+                                        onsubmit="return confirm('Data indikator ini akan diganti data dari WebAPI BPS. Lanjutkan?')">
+                                        @csrf
+                                        <button type="submit" class="text-xs text-[#002D72] hover:underline">Pakai data API</button>
+                                    </form>
+                                </li>
+                            @endforeach
+                        </ul>
+                    </details>
+                @endif
                 @if ($otomatis['diabaikan'])
                     <details class="text-sm text-gray-600 pt-1">
                         <summary class="cursor-pointer text-[#002D72] font-medium">

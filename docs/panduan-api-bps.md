@@ -5,7 +5,8 @@ Dashboard PRANATA memakai **tabel dinamis** BPS Kota Pematangsiantar langsung da
 
 1. **Semua tabel dinamis otomatis menjadi indikator.** Setiap tabel dinamis di BPS dibuatkan indikator,
    dikelompokkan menurut kategori dan subjek BPS (klasifikasi CSA, sama dengan situs BPS). Daftar tabel dicek
-   ulang berkala, jadi tabel baru di BPS ikut muncul sendiri.
+   ulang berkala (paling sering sekali sehari) saat Admin/Penanggung Jawab membuka Dashboard atau menu Data
+   API BPS, jadi tabel baru di BPS ikut muncul sendiri. Pengguna biasa tidak pernah menunggu proses ini.
 2. **Data dibaca dari API saat dibuka.** Saat indikator dibuka di Dashboard, Lihat Data, ekspor Excel/PDF,
    atau saat narasi AI dibuat, datanya (**seluruh tahun**) diambil dari API lalu disimpan. Halaman lain dan
    narasi AI (RAG) memakai data yang sama. Bila API sedang gagal, data terakhir yang tersimpan tetap dipakai.
@@ -35,14 +36,17 @@ Dashboard PRANATA memakai **tabel dinamis** BPS Kota Pematangsiantar langsung da
    ```
 
    Bila berhasil, muncul `Koneksi berhasil: kunci API diterima WebAPI BPS.` beserta jumlah tabel dinamis.
-5. Buka Dashboard. Kategori dan indikator dari tabel dinamis BPS langsung muncul di menu.
+5. Buka Dashboard sebagai Admin. Kategori dan indikator dari tabel dinamis BPS langsung muncul di menu.
 
 ## 2. Hal yang perlu diketahui
 
 - **Kecepatan.** Membuka indikator pertama kali (atau setelah datanya lebih tua dari `BPS_SEGAR_MENIT`,
   bawaan 360 menit) butuh beberapa detik karena data diambil dari API. Setelah itu data tersimpan dipakai.
 - **Indikator lama bernama sama.** Indikator yang dibuat manual/impor Excel dan namanya persis sama dengan
-  tabel dinamis BPS ditautkan ke API; datanya diganti data API saat dibuka. Nama dan subjeknya tetap.
+  tabel dinamis BPS **tidak ditimpa otomatis** dan tidak dibuat duplikatnya. Daftarnya tampil di menu
+  **Data API BPS**; klik **Pakai data API** bila ingin datanya diganti data API (nama, subjek, dan narasi tetap).
+- **Bila API gagal**, dashboard menampilkan data terakhir yang tersimpan, dan API tidak dicoba lagi untuk
+  indikator itu selama 30 menit agar halaman tetap cepat.
 - **Mengedit indikator API** di Kelola Data hanya menyimpan nama, subjek, dan satuan. Tabel datanya selalu
   dari API. Indikator API ditandai label **API BPS**.
 - **Menghapus indikator API** (atau subjek/kategorinya) membuat tabel itu tidak dibuat ulang otomatis. Untuk
@@ -53,8 +57,8 @@ Dashboard PRANATA memakai **tabel dinamis** BPS Kota Pematangsiantar langsung da
 
 ## 3. Pembaruan otomatis (opsional)
 
-Tanpa penjadwal pun data sudah diperbarui saat dibuka. Agar semua data juga diperbarui tiap malam
-(pukul 02.00), jalankan penjadwal Laravel: `php artisan schedule:work` saat pengembangan, atau
+Tanpa penjadwal pun data sudah diperbarui saat dibuka. Penjadwal Laravel menambahkan pengecekan tabel
+dinamis baru setiap malam (pukul 02.00): jalankan `php artisan schedule:work` saat pengembangan, atau
 cron/Task Scheduler yang menjalankan `php artisan schedule:run` setiap menit di server.
 
 Manual dari terminal:
@@ -84,4 +88,11 @@ php artisan bps:cek 31 --mentah --tahun=2024   # respons JSON mentah dari API (k
 ```
 
 Pengaturan di `.env` (opsional): `BPS_SEGAR_MENIT` (umur data sebelum diambil ulang, bawaan 360),
-`BPS_KATALOG_MENIT` (selang cek tabel baru, bawaan 360), `BPS_CACHE_MENIT` (cache respons API, bawaan 360).
+`BPS_KATALOG_MENIT` (selang cek tabel baru, bawaan 1440), `BPS_CACHE_MENIT` (cache respons API, bawaan 360).
+
+## 5. Narasi AI (RAG)
+
+Tidak ada yang berubah di layanan Hugging Face (`scripts/Hugging Face/main.py`). Sebelum narasi dibuat,
+Laravel memastikan data indikator sudah yang terbaru dari API, lalu mengirim `data_json` (format tabel
+`headers`/`rows` yang sama dengan impor Excel) ke `/generate-narrative`. Karena seluruh tahun ikut dikirim,
+tabel bisa lebih besar dari sebelumnya.

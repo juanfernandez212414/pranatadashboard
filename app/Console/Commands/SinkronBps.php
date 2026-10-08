@@ -40,7 +40,7 @@ class SinkronBps extends Command
         if ($katalog === null) {
             $this->warn('Cermin katalog sedang dijalankan proses lain; dilewati.');
         } else {
-            $this->info("Katalog tabel dinamis: {$katalog['baru']} indikator baru, {$katalog['ditautkan']} indikator lama ditautkan, {$katalog['tetap']} sudah ada.");
+            $this->info("Katalog tabel dinamis: {$katalog['baru']} indikator baru, {$katalog['tetap']} sudah ada, {$katalog['namaSama']} bernama sama dengan indikator lama (tautkan dari menu Data API BPS).");
         }
 
         if ($this->option('hanya-katalog')) {
@@ -48,21 +48,28 @@ class SinkronBps extends Command
         }
 
         $indikator = Indicator::where('bps_source', SinkronisasiBps::SUMBER)->whereNotNull('bps_table_id')->orderBy('id')->get();
-        $gagal = 0;
+        $berhasil = $gagal = 0;
         $mulai = now()->getTimestamp();
         foreach ($indikator as $n => $i) {
             $nomor = sprintf('[%d/%d]', $n + 1, $indikator->count());
             try {
                 $sinkron->perbarui($i, $mulai);
+                $berhasil++;
                 $this->line("{$nomor} <info>✓</info> {$i->name}");
             } catch (BpsApiException $e) {
                 $gagal++;
                 $this->line("{$nomor} <error>✗</error> {$i->name}: {$e->getMessage()}");
+                // Diblokir firewall atau kunci ditolak: permintaan berikutnya pasti gagal juga.
+                if (str_contains($e->getMessage(), 'HTTP 403') || str_contains($e->getMessage(), 'Kunci API BPS ditolak')) {
+                    $this->error('Dihentikan: WebAPI BPS menolak permintaan. Coba lagi nanti.');
+                    break;
+                }
             }
         }
 
         $this->newLine();
-        $this->info(($indikator->count() - $gagal) . " indikator diperbarui, {$gagal} gagal.");
+        $sisa = $indikator->count() - $berhasil - $gagal;
+        $this->info("{$berhasil} indikator diperbarui, {$gagal} gagal" . ($sisa ? ", {$sisa} belum diproses." : '.'));
 
         return $gagal === 0 ? self::SUCCESS : self::FAILURE;
     }

@@ -8,7 +8,7 @@ Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
 
-// Perbarui semua indikator yang tertaut ke WebAPI BPS setiap hari (seluruh tahun, data terbaru).
-// Berjalan bila penjadwal Laravel aktif: "php artisan schedule:work" saat pengembangan, atau cron /
-// Task Scheduler yang menjalankan "php artisan schedule:run" setiap menit di server.
-Schedule::command('bps:sinkron')->dailyAt('02:00')->withoutOverlapping();
+// Setiap hari: tabel dinamis baru di WebAPI BPS dibuatkan indikator. Datanya sendiri diambil dari API saat
+// indikator dibuka. Berjalan bila penjadwal Laravel aktif: "php artisan schedule:work" saat pengembangan,
+// atau cron / Task Scheduler yang menjalankan "php artisan schedule:run" setiap menit di server.
+Schedule::command('bps:sinkron --hanya-katalog')->dailyAt('02:00')->withoutOverlapping();

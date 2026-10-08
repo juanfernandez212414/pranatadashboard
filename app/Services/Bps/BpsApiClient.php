@@ -31,6 +31,7 @@ class BpsApiClient
     private string $domain;
     private int $cacheMenit;
     private int $timeout;
+    private int $ulang = 2;
     private ?int $segarSejak = null;
 
     public function __construct()
@@ -61,6 +62,22 @@ class BpsApiClient
     public function segarSejak(?int $waktu): void
     {
         $this->segarSejak = $waktu;
+    }
+
+    /**
+     * Menjalankan $ambil dengan batas waktu untuk halaman web: paling lama 10 detik per permintaan tanpa
+     * percobaan ulang, agar halaman tidak menggantung melewati batas 60 detik nginx (Herd) saat API BPS
+     * lambat. Perintah artisan tetap memakai batas waktu penuh dan percobaan ulang.
+     */
+    public function denganBatasHalaman(callable $ambil): mixed
+    {
+        [$timeout, $ulang] = [$this->timeout, $this->ulang];
+        [$this->timeout, $this->ulang] = [min($timeout, 10), 0];
+        try {
+            return $ambil();
+        } finally {
+            [$this->timeout, $this->ulang] = [$timeout, $ulang];
+        }
     }
 
     // ===========================================
@@ -112,7 +129,7 @@ class BpsApiClient
                     ->acceptJson()
                     ->withUserAgent('PRANATA/1.0 (BPS Kota Pematangsiantar)')
                     ->timeout($this->timeout)
-                    ->retry(2, 500, fn ($e) => $e instanceof ConnectionException, throw: false)
+                    ->when($this->ulang > 0, fn ($r) => $r->retry($this->ulang, 500, fn ($e) => $e instanceof ConnectionException, throw: false))
                     ->get($tertunda[$kunci][0], $tertunda[$kunci][1]),
                 array_keys($tertunda)
             ), 4);
@@ -252,11 +269,12 @@ class BpsApiClient
      */
     public function katalogDinamis(): array
     {
+        // Daftar var berisi 10 tabel per halaman; ratusan tabel = puluhan halaman (batas 100 halaman).
         return $this->daftarSemuaBanyak([
             'kategori' => ['subcatcsa', []],
             'subjek' => ['subjectcsa', []],
             'variabel' => ['var', []],
-        ]);
+        ], 100);
     }
 
     /**

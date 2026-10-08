@@ -72,7 +72,6 @@
         @if ($galatApiBps ?? null)
             <div class="bg-orange-50 border border-orange-200 text-orange-800 px-4 py-3 rounded-lg text-sm" role="alert">
                 Data terbaru dari WebAPI BPS gagal diambil{{ empty($indicator->data) ? '' : ', jadi yang tampil adalah data terakhir yang tersimpan' }}.
-                <span class="block text-xs mt-1">{{ $galatApiBps }}</span>
             </div>
         @endif
 

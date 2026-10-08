@@ -48,7 +48,7 @@ return [
         'domain' => env('BPS_DOMAIN', '1273'),                    // 1273 = Kota Pematangsiantar
         'cache_menit' => (int) env('BPS_CACHE_MENIT', 360),       // lama respons API disimpan di cache
         'segar_menit' => (int) env('BPS_SEGAR_MENIT', 360),       // data indikator diambil ulang dari API bila lebih tua dari ini
-        'katalog_menit' => (int) env('BPS_KATALOG_MENIT', 360),   // daftar tabel dinamis dicek ulang (tabel baru) paling sering tiap ...
+        'katalog_menit' => (int) env('BPS_KATALOG_MENIT', 1440),  // daftar tabel dinamis dicek ulang (tabel baru) paling sering tiap ...
         'timeout' => (int) env('BPS_TIMEOUT', 25),                // detik per permintaan
     ],
 

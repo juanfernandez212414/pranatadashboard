@@ -114,6 +114,7 @@ Route::middleware(['auth', 'area.role'])->group(function () {
     Route::post('/admin/data-bps/publikasi/{id}', [DataBpsController::class, 'simpanPublikasi'])->name('admin.databps.publikasi.simpan');
     Route::post('/admin/data-bps/perbarui-katalog', [DataBpsController::class, 'perbaruiKatalog'])->name('admin.databps.katalog.perbarui');
     Route::post('/admin/data-bps/tabel-diabaikan/{var}/pulihkan', [DataBpsController::class, 'pulihkanTabel'])->whereNumber('var')->name('admin.databps.diabaikan.pulihkan');
+    Route::post('/admin/data-bps/tautkan/{indicator}', [DataBpsController::class, 'tautkanIndikator'])->whereNumber('indicator')->name('admin.databps.tautkan');
 
     // Manajemen Pengguna
     Route::get('/admin/pengguna', [UserController::class, 'index'])->name('admin.pengguna');
@@ -184,6 +185,7 @@ Route::middleware(['auth', 'area.role'])->group(function () {
         Route::post('/data-bps/publikasi/{id}', [DataBpsController::class, 'simpanPublikasi'])->name('databps.publikasi.simpan');
         Route::post('/data-bps/perbarui-katalog', [DataBpsController::class, 'perbaruiKatalog'])->name('databps.katalog.perbarui');
         Route::post('/data-bps/tabel-diabaikan/{var}/pulihkan', [DataBpsController::class, 'pulihkanTabel'])->whereNumber('var')->name('databps.diabaikan.pulihkan');
+        Route::post('/data-bps/tautkan/{indicator}', [DataBpsController::class, 'tautkanIndikator'])->whereNumber('indicator')->name('databps.tautkan');
 
         // Konfigurasi Model AI (Sesuai Sidebar)
         Route::get('/model/check-status', [ModelController::class, 'checkStatus'])->name('model.checkStatus');

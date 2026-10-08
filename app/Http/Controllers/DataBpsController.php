@@ -102,11 +102,34 @@ class DataBpsController extends Controller
         }
         $tertaut = Indicator::where('bps_source', SinkronisasiBps::SUMBER);
 
+        try {
+            $kandidat = $this->bps->siap() ? $this->bps->denganBatasHalaman(fn () => $this->sinkron->kandidatTautan()) : [];
+        } catch (\Throwable) {
+            $kandidat = []; // daftar tabel gagal dimuat; galatnya sudah tampil di tab Tabel Dinamis
+        }
+
         return [
             'jumlah' => (clone $tertaut)->count(),
             'terakhir' => (clone $tertaut)->max('bps_synced_at'),
             'diabaikan' => SinkronisasiBps::tabelDiabaikan(),
+            'kandidat' => $kandidat,
         ];
+    }
+
+    // Menautkan indikator lama (manual/Excel) ke tabel dinamis BPS yang namanya sama, atas pilihan Admin/PJ.
+    public function tautkanIndikator(Indicator $indicator)
+    {
+        $this->cekAkses();
+
+        try {
+            $berhasil = $this->sinkron->tautkanIndikator($indicator);
+        } catch (BpsApiException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return $berhasil
+            ? back()->with('success', "Indikator \"{$indicator->name}\" kini memakai data tabel dinamis WebAPI BPS (seluruh tahun) saat dibuka.")
+            : back()->with('error', "Indikator \"{$indicator->name}\" tidak bisa ditautkan: tidak ada tabel dinamis BPS dengan nama yang sama, atau sudah tertaut.");
     }
 
     // Tabel dinamis yang indikatornya pernah dihapus dimunculkan lagi sebagai indikator.
@@ -139,7 +162,8 @@ class DataBpsController extends Controller
             return back()->with('error', 'Pengecekan tabel baru sedang berjalan atau kunci API belum diisi. Coba beberapa saat lagi.');
         }
 
-        return back()->with('success', "Daftar tabel dinamis diperiksa: {$hasil['baru']} indikator baru, {$hasil['ditautkan']} indikator lama ditautkan ke API, {$hasil['tetap']} sudah ada.");
+        return back()->with('success', "Daftar tabel dinamis diperiksa: {$hasil['baru']} indikator baru, {$hasil['tetap']} sudah ada"
+            . ($hasil['namaSama'] ? ", {$hasil['namaSama']} bernama sama dengan indikator lama (lihat daftar di bawah)." : '.'));
     }
 
     // Kategori subjek & subjek CSA untuk penyaring, sama persis dengan situs BPS: semua kategori dan

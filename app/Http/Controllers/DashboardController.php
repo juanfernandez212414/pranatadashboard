@@ -27,8 +27,11 @@ class DashboardController extends Controller
         $user = Auth::user();
 
         // Tabel dinamis BPS yang baru muncul di API otomatis menjadi indikator (paling sering sekali per
-        // BPS_KATALOG_MENIT; bila API bermasalah dashboard tetap tampil dengan data yang ada).
-        $sinkron->cerminkanKatalogDiam();
+        // BPS_KATALOG_MENIT; bila API bermasalah dashboard tetap tampil dengan data yang ada). Hanya saat
+        // Admin/PJ membuka dashboard, agar Pengguna tidak pernah menunggu daftar tabel dari API.
+        if (in_array($user->role_id, [1, 3])) {
+            $sinkron->cerminkanKatalogDiam();
+        }
 
         // 1. Logika penentuan path sudah benar
         if ($user->role_id == 1) {

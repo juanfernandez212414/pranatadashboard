@@ -61,7 +61,7 @@ beforeEach(function () {
 it('membuat indikator untuk semua tabel dinamis BPS saat dashboard dibuka, tanpa impor manual', function () {
     palsukanBps();
 
-    $this->actingAs($this->biasa)->get('/pengguna/dashboard')->assertOk();
+    $this->actingAs($this->admin)->get('/admin/dashboard')->assertOk();
 
     $indikator = Indicator::with('subject.category')->orderBy('bps_table_id')->get();
     $penduduk = $indikator->firstWhere('bps_table_id', '31');
@@ -77,9 +77,34 @@ it('membuat indikator untuk semua tabel dinamis BPS saat dashboard dibuka, tanpa
 
     // Daftar tabel hanya dicek ulang berkala, tidak setiap halaman dibuka.
     $jumlah = count(Http::recorded());
-    $this->actingAs($this->admin)->get('/admin/dashboard')->assertOk();
+    $this->actingAs($this->pj)->get('/penanggungjawab/dashboard')->assertOk();
     expect(count(Http::recorded()))->toBe($jumlah)
         ->and(Indicator::count())->toBe(4);
+});
+
+it('tidak membuat Pengguna menunggu daftar tabel dari API saat membuka dashboard', function () {
+    palsukanBps();
+
+    $this->actingAs($this->biasa)->get('/pengguna/dashboard')->assertOk();
+
+    Http::assertNothingSent();
+});
+
+it('membaca katalog lebih dari 20 halaman (ratusan tabel dinamis)', function () {
+    $halaman = fixtureBps('var_daftar.json');
+    palsukanBps(['model=var' => function (Request $r) use ($halaman) {
+        parse_str((string) parse_url($r->url(), PHP_URL_QUERY), $q);
+        $nomor = (int) ($q['page'] ?? 1);
+        $isi = $halaman;
+        $isi['data'][0] = ['page' => $nomor, 'pages' => 30, 'per_page' => 10, 'count' => 1, 'total' => 30];
+        $isi['data'][1] = [array_merge($halaman['data'][1][2], ['var_id' => 1000 + $nomor, 'title' => "Tabel {$nomor}"])];
+
+        return Http::response($isi);
+    }]);
+
+    $this->artisan('bps:sinkron', ['--hanya-katalog' => true])->assertSuccessful();
+
+    expect(Indicator::count())->toBe(30);
 });
 
 it('mengecek tabel dinamis baru lagi setelah selang waktu katalog', function () {
@@ -87,27 +112,37 @@ it('mengecek tabel dinamis baru lagi setelah selang waktu katalog', function () 
     $this->actingAs($this->admin)->get('/admin/dashboard');
     Indicator::where('bps_table_id', '32')->delete(); // seolah-olah tabel 32 baru muncul di BPS
 
-    $this->travel(361)->minutes();
+    $this->travel(1441)->minutes(); // BPS_KATALOG_MENIT bawaan: sehari
     $this->actingAs($this->admin)->get('/admin/dashboard')->assertOk();
 
     expect(Indicator::where('bps_table_id', '32')->count())->toBe(1);
 });
 
-it('menautkan indikator lama yang namanya sama dengan tabel dinamis BPS', function () {
+it('tidak menimpa indikator lama bernama sama, kecuali Admin/PJ memilih memakai data API', function () {
     palsukanBps();
     $subjek = Subject::create(['category_id' => Category::create(['name' => 'Sosial dan Kependudukan'])->id, 'name' => 'Penduduk']);
     $lama = Indicator::create(['subject_id' => $subjek->id, 'name' => 'PENDUDUK PER  KECAMATAN', 'unit' => 'Orang',
         'data' => ['headers' => [['value' => 'Lama']], 'rows' => [[['value' => '1']]]]]);
 
-    $this->actingAs($this->admin)->get('/admin/dashboard')->assertOk();
-
-    $lama->refresh();
+    // Cermin katalog tidak menyentuh indikator lama dan tidak membuat duplikatnya.
+    $this->actingAs($this->admin)->get('/admin/data-bps')
+        ->assertOk()
+        ->assertSee('1 indikator lama bernama sama dengan tabel dinamis BPS')
+        ->assertSee('Pakai data API');
     expect(Indicator::count())->toBe(4)
-        ->and([$lama->bps_source, $lama->bps_table_id, $lama->subject_id, $lama->unit])->toBe(['dinamis', '31', $subjek->id, 'Orang']);
+        ->and($lama->fresh()->bps_source)->toBeNull()
+        ->and(Indicator::where('bps_table_id', '31')->exists())->toBeFalse();
+
+    $this->actingAs($this->pj)->post("/penanggungjawab/data-bps/tautkan/{$lama->id}")->assertSessionHas('success');
+    $lama->refresh();
+    expect([$lama->bps_source, $lama->bps_table_id, $lama->subject_id, $lama->unit, $lama->name])
+        ->toBe(['dinamis', '31', $subjek->id, 'Orang', 'PENDUDUK PER  KECAMATAN']);
 
     // Saat dibuka, data lama diganti data API.
-    $this->actingAs($this->admin)->get(urlDashboard('/admin', $lama))->assertOk();
+    $this->actingAs($this->admin)->get(urlDashboard('/admin', $lama->load('subject')))->assertOk();
     expect(judulKolom($lama->fresh()))->toBe(['Kecamatan', '2020', '2023', '2024']);
+
+    $this->actingAs($this->biasa)->post("/admin/data-bps/tautkan/{$lama->id}")->assertForbidden();
 });
 
 it('memakai subjek PRANATA yang namanya sama dengan subjek BPS', function () {
@@ -252,6 +287,25 @@ it('tidak menghubungi API lagi selama data masih segar, dan mengambil ulang sete
     expect(jumlahPermintaanData())->toBe($awal * 2);
 });
 
+it('tidak menghubungi API lagi selama jeda setelah pengambilan data gagal', function () {
+    Http::fake(['*' => Http::response('Service Unavailable', 503)]);
+    $subjek = Subject::create(['category_id' => Category::create(['name' => 'K'])->id, 'name' => 'S']);
+    $indikator = Indicator::create(['subject_id' => $subjek->id, 'name' => 'Penduduk', 'data' => null,
+        'bps_source' => 'dinamis', 'bps_table_id' => '31']);
+
+    $this->actingAs($this->biasa)->get("/pengguna/lihatdata/{$indikator->id}")->assertOk();
+    $jumlah = count(Http::recorded());
+    $this->actingAs($this->biasa)->get("/pengguna/lihatdata/{$indikator->id}")
+        ->assertOk()
+        ->assertSee('Data terbaru dari WebAPI BPS gagal diambil')
+        ->assertDontSee('HTTP 503'); // rincian teknis hanya untuk Admin/PJ
+    expect(count(Http::recorded()))->toBe($jumlah);
+
+    $this->travel(31)->minutes();
+    $this->actingAs($this->biasa)->get("/pengguna/lihatdata/{$indikator->id}")->assertOk();
+    expect(count(Http::recorded()))->toBeGreaterThan($jumlah);
+});
+
 it('menampilkan data terakhir yang tersimpan bila API gagal saat indikator dibuka', function () {
     $gagal = false;
     palsukanBps(['model=data' => function (Request $r) use (&$gagal) {
@@ -343,7 +397,7 @@ it('menampilkan ringkasan tabel dinamis otomatis di halaman Data API BPS', funct
         ->assertDontSee('Sinkronisasi Semua Tabel');
 
     $this->actingAs($this->pj)->post('/penanggungjawab/data-bps/perbarui-katalog')
-        ->assertSessionHas('success', 'Daftar tabel dinamis diperiksa: 0 indikator baru, 0 indikator lama ditautkan ke API, 4 sudah ada.');
+        ->assertSessionHas('success', 'Daftar tabel dinamis diperiksa: 0 indikator baru, 4 sudah ada.');
 
     $this->actingAs($this->biasa)->post('/admin/data-bps/perbarui-katalog')->assertForbidden();
 });
@@ -353,12 +407,26 @@ it('membuat indikator semua tabel dinamis dan mengambil datanya lewat php artisa
 
     // Var 1 dan 106 tidak berisi data di fixture, jadi gagal diperbarui.
     $this->artisan('bps:sinkron')
-        ->expectsOutputToContain('4 indikator baru, 0 indikator lama ditautkan, 0 sudah ada')
+        ->expectsOutputToContain('4 indikator baru, 0 sudah ada, 0 bernama sama')
         ->expectsOutputToContain('Penduduk per kecamatan')
         ->expectsOutputToContain('2 indikator diperbarui, 2 gagal.')
         ->assertFailed();
 
     expect(judulKolom(Indicator::where('bps_table_id', '31')->sole()))->toBe(['Kecamatan', '2020', '2023', '2024']);
+});
+
+it('menghentikan bps:sinkron bila WebAPI BPS menolak permintaan (HTTP 403)', function () {
+    $diblokir = false;
+    palsukanBps(['model=data' => function () use (&$diblokir) {
+        return $diblokir ? Http::response('Forbidden', 403) : Http::response('null');
+    }]);
+    $this->artisan('bps:sinkron', ['--hanya-katalog' => true]);
+    $diblokir = true;
+
+    $this->artisan('bps:sinkron')
+        ->expectsOutputToContain('Dihentikan: WebAPI BPS menolak permintaan')
+        ->expectsOutputToContain('0 indikator diperbarui, 1 gagal, 3 belum diproses.')
+        ->assertFailed();
 });
 
 it('hanya mencerminkan katalog lewat php artisan bps:sinkron --hanya-katalog', function () {

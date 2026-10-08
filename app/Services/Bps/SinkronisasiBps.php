@@ -5,6 +5,7 @@ namespace App\Services\Bps;
 use App\Models\Category;
 use App\Models\Indicator;
 use App\Models\Subject;
+use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -14,7 +15,9 @@ use Illuminate\Support\Facades\Log;
  *
  * 1. Cermin katalog: setiap tabel dinamis domain ini otomatis menjadi indikator (kategori & subjek
  *    mengikuti klasifikasi CSA di situs BPS), tanpa impor manual. Dijalankan berkala (paling sering sekali
- *    per services.bps.katalog_menit) saat dashboard dibuka, dan oleh perintah "php artisan bps:sinkron".
+ *    per services.bps.katalog_menit) saat Admin/PJ membuka dashboard atau Data API BPS, oleh penjadwal, dan
+ *    oleh perintah "php artisan bps:sinkron". Indikator lama (manual/Excel) yang namanya sama dengan tabel
+ *    BPS tidak ditimpa otomatis: Admin/PJ memilih sendiri untuk menautkannya (tautkanIndikator).
  * 2. Baca API saat dibuka: saat indikator dibuka (dashboard, Lihat Data, ekspor, narasi AI), datanya
  *    diambil dari API dengan SELURUH tahun yang tersedia bila sudah lebih tua dari services.bps.segar_menit,
  *    lalu disimpan di Indicator.data. Halaman lain dan narasi AI (RAG) memakai data yang sama. Bila API
@@ -31,6 +34,9 @@ class SinkronisasiBps
     // Kunci cache: penanda katalog baru saja dicerminkan, dan kunci agar cermin tidak berjalan ganda.
     private const KUNCI_CERMIN = 'bps:katalog-dicerminkan';
     private const KUNCI_KUNCIAN = 'bps:kunci-cermin-katalog';
+
+    // Setelah pengambilan data satu indikator gagal, API tidak dicoba lagi untuk indikator itu selama ini.
+    private const JEDA_GAGAL_MENIT = 30;
 
     public function __construct(private BpsApiClient $bps)
     {
@@ -70,12 +76,11 @@ class SinkronisasiBps
 
     /**
      * Mencerminkan katalog tabel dinamis ke indikator. Tabel yang belum menjadi indikator dibuat (datanya
-     * diambil saat pertama dibuka); indikator lama tanpa tautan API yang namanya sama dengan tabel BPS
-     * ditautkan ke tabel itu, sehingga datanya ikut diganti data API. Tabel yang indikatornya pernah dihapus
-     * pengguna dilewati (lihat abaikanTabel).
+     * diambil saat pertama dibuka). Dilewati: tabel yang indikatornya pernah dihapus pengguna (abaikanTabel)
+     * dan tabel yang namanya sama dengan indikator lama tanpa tautan API (lihat kandidatTautan).
      *
      * Tanpa $paksa, hanya berjalan bila cermin terakhir lebih tua dari services.bps.katalog_menit.
-     * Mengembalikan jumlah ['baru', 'ditautkan', 'tetap'], atau null bila dilewati.
+     * Mengembalikan jumlah ['baru', 'namaSama', 'tetap'], atau null bila dilewati.
      */
     public function cerminkanKatalog(bool $paksa = false): ?array
     {
@@ -91,7 +96,8 @@ class SinkronisasiBps
             $katalog = $this->denganCacheSegar($paksa ? now()->getTimestamp() : null, fn () => $this->katalog());
             $tertaut = Indicator::where('bps_source', self::SUMBER)->whereNull('bps_options')->get(['id', 'bps_table_id', 'bps_chart'])->keyBy('bps_table_id');
             $diabaikan = array_flip(DB::table('bps_tabel_diabaikan')->pluck('bps_table_id')->all());
-            $jumlah = ['baru' => 0, 'ditautkan' => 0, 'tetap' => 0];
+            $namaManual = $this->petaNamaManual();
+            $jumlah = ['baru' => 0, 'namaSama' => 0, 'tetap' => 0];
 
             foreach ($katalog as $t) {
                 if (isset($tertaut[$t['id']])) {
@@ -99,12 +105,15 @@ class SinkronisasiBps
                     if (($tertaut[$t['id']]->bps_chart ?? null) !== self::grafik($t['grafik'])) {
                         Indicator::whereKey($tertaut[$t['id']]->id)->toBase()->update(['bps_chart' => self::grafik($t['grafik'])]);
                     }
+                } elseif (isset($namaManual[self::kunciNama($t['judul'])])) {
+                    $jumlah['namaSama']++;
                 } elseif (!isset($diabaikan[$t['id']])) {
-                    $jumlah[$this->cerminkanTabel($t)]++;
+                    $this->buatIndikator($t);
+                    $jumlah['baru']++;
                 }
             }
 
-            Cache::put(self::KUNCI_CERMIN, now()->getTimestamp(), now()->addMinutes(self::menit('katalog_menit', 360)));
+            Cache::put(self::KUNCI_CERMIN, now()->getTimestamp(), now()->addMinutes(self::menit('katalog_menit', 1440)));
 
             return $jumlah;
         });
@@ -112,11 +121,14 @@ class SinkronisasiBps
         return $hasil ?: null;
     }
 
-    /** Versi aman untuk halaman: kegagalan API dicatat di log dan tidak menghentikan halaman. */
+    /**
+     * Versi untuk halaman web: memakai batas waktu halaman, dan kegagalan API hanya dicatat di log tanpa
+     * menghentikan halaman.
+     */
     public function cerminkanKatalogDiam(): void
     {
         try {
-            $this->cerminkanKatalog();
+            $this->bps->denganBatasHalaman(fn () => $this->cerminkanKatalog());
         } catch (\Throwable $e) {
             Log::warning('Cermin katalog tabel dinamis BPS gagal: ' . $e->getMessage());
             // Jangan coba lagi pada setiap permintaan halaman selama API bermasalah.
@@ -124,25 +136,71 @@ class SinkronisasiBps
         }
     }
 
-    // Satu tabel katalog menjadi indikator: menautkan indikator bernama sama, atau membuat yang baru.
-    private function cerminkanTabel(array $t): string
+    // Satu tabel katalog menjadi indikator baru (datanya diambil saat pertama dibuka).
+    private function buatIndikator(array $t): void
     {
-        $tautan = ['bps_source' => self::SUMBER, 'bps_table_id' => $t['id'], 'bps_options' => null, 'bps_chart' => self::grafik($t['grafik']), 'bps_synced_at' => null];
-
-        if ($indikator = $this->indikatorBernamaSama($t['judul'])) {
-            $indikator->update($tautan + ['unit' => $indikator->unit ?: (self::potong($t['satuan'], 50) ?: null)]);
-
-            return 'ditautkan';
-        }
-
-        Indicator::create($tautan + [
+        Indicator::create(self::tautan($t) + [
             'subject_id' => $this->subjekTujuan($t)->id,
             'name' => self::potong($t['judul'], 255),
             'unit' => self::potong($t['satuan'], 50) ?: null,
             'data' => null,
         ]);
+    }
 
-        return 'baru';
+    private static function tautan(array $t): array
+    {
+        return ['bps_source' => self::SUMBER, 'bps_table_id' => $t['id'], 'bps_options' => null, 'bps_chart' => self::grafik($t['grafik']), 'bps_synced_at' => null];
+    }
+
+    /**
+     * Indikator lama tanpa tautan API yang namanya sama dengan tabel dinamis BPS (dan tabelnya belum tertaut):
+     * [['indikator' => ['id', 'name', 'subjek'], 'var' => ID var, 'judul' => judul tabel BPS], ...].
+     * Tidak ditautkan otomatis karena datanya akan diganti data API.
+     */
+    public function kandidatTautan(): array
+    {
+        $namaManual = $this->petaNamaManual();
+        if ($namaManual === []) {
+            return [];
+        }
+        $tertaut = array_flip(Indicator::where('bps_source', self::SUMBER)->whereNull('bps_options')->pluck('bps_table_id')->all());
+
+        $hasil = [];
+        foreach ($this->katalog() as $t) {
+            if (!isset($tertaut[$t['id']]) && ($i = $namaManual[self::kunciNama($t['judul'])] ?? null)) {
+                $hasil[] = ['indikator' => ['id' => $i->id, 'name' => $i->name, 'subjek' => $i->subject->name ?? ''], 'var' => $t['id'], 'judul' => $t['judul']];
+            }
+        }
+
+        return $hasil;
+    }
+
+    /**
+     * Menautkan indikator lama ke tabel dinamis BPS bernama sama (pilihan Admin/PJ). Nama, subjek, dan narasi
+     * tetap; datanya diganti data API (seluruh tahun) saat dibuka berikutnya.
+     */
+    public function tautkanIndikator(Indicator $indikator): bool
+    {
+        $t = collect($this->katalog())->first(fn ($t) => self::kunciNama($t['judul']) === self::kunciNama($indikator->name));
+        if ($t === null || $indikator->bps_source !== null) {
+            return false;
+        }
+
+        $indikator->update(self::tautan($t) + ['unit' => $indikator->unit ?: (self::potong($t['satuan'], 50) ?: null)]);
+        DB::table('bps_tabel_diabaikan')->where('bps_table_id', $t['id'])->delete();
+
+        return true;
+    }
+
+    // Indikator tanpa tautan API, dikunci dengan nama yang dibakukan (dibuat sekali per cermin).
+    private function petaNamaManual(): array
+    {
+        $peta = [];
+        foreach (Indicator::whereNull('bps_source')->with('subject:id,name')->get(['id', 'name', 'subject_id']) as $i) {
+            $peta[self::kunciNama($i->name)] ??= $i;
+        }
+
+        return $peta;
     }
 
     /**
@@ -206,9 +264,26 @@ class SinkronisasiBps
             return null;
         }
 
-        // Satu pengambilan per indikator pada satu waktu; permintaan lain memakai data tersimpan.
+        // Baru saja gagal: jangan membebani API (dan membuat halaman lambat) pada setiap pembukaan.
+        $kunciGagal = "bps:gagal-segarkan:{$indikator->id}";
+        if (!$paksa && ($galat = Cache::get($kunciGagal)) !== null) {
+            return $galat;
+        }
+
+        // Satu pengambilan per indikator pada satu waktu. Permintaan lain memakai data tersimpan, atau bila
+        // datanya belum ada sama sekali, menunggu pengambilan yang sedang berjalan selesai.
         $kunci = Cache::lock("bps:segarkan-indikator:{$indikator->id}", 120);
         if (!$kunci->get()) {
+            if (empty($indikator->data)) {
+                try {
+                    $kunci->block(20);
+                    $kunci->release();
+                    $indikator->refresh();
+                } catch (LockTimeoutException) {
+                    // tetap tampil tanpa data; pembukaan berikutnya mencoba lagi
+                }
+            }
+
             return null;
         }
 
@@ -216,14 +291,17 @@ class SinkronisasiBps
             // Satu tabel bisa butuh beberapa permintaan API; batas waktu PHP dihitung ulang dari sini.
             @set_time_limit(120);
             // Respons API di cache yang lebih muda dari batas segar boleh dipakai; $paksa = harus dari API.
-            $this->perbarui($indikator, $paksa ? now()->getTimestamp() : now()->subMinutes($menit)->getTimestamp());
+            $this->bps->denganBatasHalaman(fn () => $this->perbarui($indikator, $paksa ? now()->getTimestamp() : now()->subMinutes($menit)->getTimestamp()));
+            Cache::forget($kunciGagal);
 
             return null;
         } catch (\Throwable $e) {
             // Halaman tetap tampil dengan data tersimpan, apa pun penyebab kegagalannya.
             Log::warning("Data indikator {$indikator->id} (var {$indikator->bps_table_id}) gagal diambil dari WebAPI BPS: {$e->getMessage()}");
+            $galat = $e instanceof BpsApiException ? $e->getMessage() : 'Terjadi kesalahan saat membaca data dari WebAPI BPS.';
+            Cache::put($kunciGagal, $galat, now()->addMinutes(self::JEDA_GAGAL_MENIT));
 
-            return $e instanceof BpsApiException ? $e->getMessage() : 'Terjadi kesalahan saat membaca data dari WebAPI BPS.';
+            return $galat;
         } finally {
             $kunci->release();
         }
@@ -333,15 +411,6 @@ class SinkronisasiBps
     private static function kunciNama(string $nama): string
     {
         return mb_strtolower(trim(preg_replace('/\s+/u', ' ', $nama) ?? $nama));
-    }
-
-    private function indikatorBernamaSama(string $judul): ?Indicator
-    {
-        $kunci = self::kunciNama($judul);
-
-        return Indicator::whereNull('bps_source')->get(['id', 'name'])
-            ->first(fn (Indicator $i) => self::kunciNama($i->name) === $kunci)
-            ?->fresh();
     }
 
     /**
