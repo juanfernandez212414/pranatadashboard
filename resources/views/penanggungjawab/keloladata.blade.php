@@ -449,7 +449,12 @@
                                                     
                                                 </td>
                                                 <td class="p-4 text-sm font-medium text-gray-800">
-                                                    {{ $indicator->name }}</td>
+                                                    {{ $indicator->name }}
+                                                    @if ($indicator->bps_source)
+                                                        <span class="ml-1 inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
+                                                            title="Data diambil otomatis dari tabel dinamis WebAPI BPS saat dibuka. Isian tabel tidak bisa diedit manual.">API BPS</span>
+                                                    @endif
+                                                </td>
                                                 <td class="p-4 text-sm text-gray-500 whitespace-nowrap">
                                                     {{ $indicator->unit ?? '-' }}</td>
                                                 <td class="p-4 text-center">
@@ -467,7 +472,7 @@
                                                                     d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                                                             </svg></button>
                                                         <button
-                                                            @click="$dispatch('open-delete-modal', { action: '{{ route('penanggungjawab.indicators.destroy', $indicator) }}', msg: 'Yakin ingin menghapus data matriks tabel indikator ini?' })"
+                                                            @click="$dispatch('open-delete-modal', { action: '{{ route('penanggungjawab.indicators.destroy', $indicator) }}', msg: {{ Js::from($indicator->bps_source ? 'Yakin ingin menghapus indikator ini? Tabel dinamis BPS-nya tidak akan dibuat ulang otomatis (bisa ditampilkan lagi dari halaman Data API BPS).' : 'Yakin ingin menghapus data matriks tabel indikator ini?') }} })"
                                                             class="p-2 text-red-500 hover:text-red-600 bg-white hover:bg-red-50 border border-slate-200 hover:border-red-200 rounded-lg transition-colors shadow-sm" title="Hapus Indikator">
                                                         <svg class="w-4 h-4" fill="none" stroke="currentColor"
                                                                 viewBox="0 0 24 24">

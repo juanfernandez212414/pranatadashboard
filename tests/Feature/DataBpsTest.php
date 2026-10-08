@@ -190,7 +190,10 @@ it('hanya Admin dan Penanggung Jawab yang boleh memakai Data API BPS', function 
         $this->actingAs($this->{$role})->post('/admin/data-bps/publikasi/d16eaeb2fff0805a540b5047')->assertForbidden();
     }
 
-    expect(Indicator::count())->toBe(0)->and(glob($this->folderPdf . '/*'))->toBe([]);
+    // Indikator yang ada hanya hasil cermin katalog saat Admin membuka halaman, bukan dari role lain.
+    expect(Indicator::where('name', 'Penyusup')->exists())->toBeFalse()
+        ->and(Indicator::whereNull('bps_source')->count())->toBe(0)
+        ->and(glob($this->folderPdf . '/*'))->toBe([]);
 });
 
 it('menampilkan tab Tabel Dinamis seperti situs BPS: kategori subjek, subjek, dan tabel', function () {

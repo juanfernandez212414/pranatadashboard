@@ -3,27 +3,24 @@
 namespace App\Console\Commands;
 
 use App\Models\Indicator;
-use App\Models\Subject;
 use App\Services\Bps\BpsApiClient;
 use App\Services\Bps\BpsApiException;
 use App\Services\Bps\SinkronisasiBps;
 use Illuminate\Console\Command;
 
 /**
- * Sinkronisasi indikator dengan WebAPI BPS dari terminal (juga dijalankan harian oleh penjadwal Laravel).
+ * Sinkronisasi tabel dinamis WebAPI BPS dari terminal (juga dijalankan harian oleh penjadwal Laravel):
+ * 1. tabel dinamis baru di BPS dibuatkan indikator (cermin katalog),
+ * 2. data semua indikator tertaut diambil ulang dari API (seluruh tahun).
  *
- *   php artisan bps:sinkron                          perbarui semua indikator yang tertaut ke API
- *   php artisan bps:sinkron --impor=simdasi          impor semua tabel publikasi SIMDASI
- *   php artisan bps:sinkron --impor=simdasi,dinamis  impor beberapa sumber sekaligus
- *   php artisan bps:sinkron --impor=semua            impor semua sumber (termasuk tabel statis)
+ *   php artisan bps:sinkron                  cermin katalog + perbarui data semua indikator
+ *   php artisan bps:sinkron --hanya-katalog  cermin katalog saja (data diambil saat indikator dibuka)
  */
 class SinkronBps extends Command
 {
-    protected $signature = 'bps:sinkron
-        {--impor= : Sumber tabel yang diimpor semuanya: simdasi, dinamis, statis, atau semua (pisahkan dengan koma)}
-        {--subjek= : ID subjek tujuan indikator baru (bawaan: mengikuti kategori & subjek BPS)}';
+    protected $signature = 'bps:sinkron {--hanya-katalog : Hanya buat indikator untuk tabel dinamis baru, tanpa mengambil datanya}';
 
-    protected $description = 'Impor tabel WebAPI BPS (seluruh tahun) menjadi indikator, atau perbarui indikator yang tertaut ke API';
+    protected $description = 'Buat indikator untuk semua tabel dinamis WebAPI BPS dan perbarui datanya (seluruh tahun)';
 
     public function handle(BpsApiClient $bps, SinkronisasiBps $sinkron): int
     {
@@ -33,27 +30,24 @@ class SinkronBps extends Command
             return self::FAILURE;
         }
 
-        $subjek = $this->option('subjek');
-        if ($subjek !== null && !Subject::whereKey($subjek)->exists()) {
-            $this->error("Subjek dengan ID {$subjek} tidak ditemukan.");
+        try {
+            $katalog = $sinkron->cerminkanKatalog(paksa: true);
+        } catch (BpsApiException $e) {
+            $this->error("Daftar tabel dinamis gagal dimuat: {$e->getMessage()}");
 
             return self::FAILURE;
         }
+        if ($katalog === null) {
+            $this->warn('Cermin katalog sedang dijalankan proses lain; dilewati.');
+        } else {
+            $this->info("Katalog tabel dinamis: {$katalog['baru']} indikator baru, {$katalog['ditautkan']} indikator lama ditautkan, {$katalog['tetap']} sudah ada.");
+        }
 
-        return $this->option('impor') !== null
-            ? $this->impor($sinkron, $subjek !== null ? (int) $subjek : null)
-            : $this->perbaruiSemua($sinkron);
-    }
-
-    private function perbaruiSemua(SinkronisasiBps $sinkron): int
-    {
-        $indikator = Indicator::dariBps()->orderBy('id')->get();
-        if ($indikator->isEmpty()) {
-            $this->info('Belum ada indikator yang tertaut ke WebAPI BPS. Impor tabel dulu, misalnya: php artisan bps:sinkron --impor=simdasi');
-
+        if ($this->option('hanya-katalog')) {
             return self::SUCCESS;
         }
 
+        $indikator = Indicator::where('bps_source', SinkronisasiBps::SUMBER)->whereNotNull('bps_table_id')->orderBy('id')->get();
         $gagal = 0;
         $mulai = now()->getTimestamp();
         foreach ($indikator as $n => $i) {
@@ -71,49 +65,5 @@ class SinkronBps extends Command
         $this->info(($indikator->count() - $gagal) . " indikator diperbarui, {$gagal} gagal.");
 
         return $gagal === 0 ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function impor(SinkronisasiBps $sinkron, ?int $subjek): int
-    {
-        $sumber = array_filter(array_map('trim', explode(',', strtolower((string) $this->option('impor')))));
-        if (in_array('semua', $sumber, true)) {
-            $sumber = array_keys(SinkronisasiBps::SUMBER);
-        }
-        if ($sumber === [] || array_diff($sumber, array_keys(SinkronisasiBps::SUMBER))) {
-            $this->error('Pilihan --impor tidak dikenal. Gunakan: ' . implode(', ', array_keys(SinkronisasiBps::SUMBER)) . ', atau semua.');
-
-            return self::FAILURE;
-        }
-
-        $jumlah = ['baru' => 0, 'ditautkan' => 0, 'diperbarui' => 0, 'gagal' => 0];
-        foreach ($sumber as $s) {
-            $this->newLine();
-            $this->info('== ' . SinkronisasiBps::SUMBER[$s] . ' ==');
-            try {
-                $katalog = $sinkron->katalog($s);
-            } catch (BpsApiException $e) {
-                $this->error("Daftar tabel gagal dimuat: {$e->getMessage()}");
-                $jumlah['gagal']++;
-
-                continue;
-            }
-
-            foreach ($katalog as $n => $t) {
-                $nomor = sprintf('[%d/%d]', $n + 1, count($katalog));
-                try {
-                    $hasil = $sinkron->impor($s, $t['id'], [], $subjek);
-                    $jumlah[$hasil['status']]++;
-                    $this->line("{$nomor} <info>✓</info> {$t['judul']} ({$hasil['status']})");
-                } catch (BpsApiException $e) {
-                    $jumlah['gagal']++;
-                    $this->line("{$nomor} <error>✗</error> {$t['judul']}: {$e->getMessage()}");
-                }
-            }
-        }
-
-        $this->newLine();
-        $this->info("Selesai: {$jumlah['baru']} indikator baru, {$jumlah['ditautkan']} ditautkan, {$jumlah['diperbarui']} diperbarui, {$jumlah['gagal']} gagal.");
-
-        return self::SUCCESS;
     }
 }

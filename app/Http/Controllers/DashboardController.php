@@ -8,6 +8,7 @@ use App\Models\Category;
 use App\Models\Subject;
 use App\Models\Indicator;
 use App\Models\Setting;
+use App\Services\Bps\SinkronisasiBps;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Auth; // <--- TAMBAHKAN INI
 
@@ -21,9 +22,13 @@ class DashboardController extends Controller
      * FUNGSI INDEX UTAMA (DENGAN FILTER SUBJEK/INDIKATOR)
      * ====================================================================
      */
-    public function index(Request $request)
+    public function index(Request $request, SinkronisasiBps $sinkron)
     {
         $user = Auth::user();
+
+        // Tabel dinamis BPS yang baru muncul di API otomatis menjadi indikator (paling sering sekali per
+        // BPS_KATALOG_MENIT; bila API bermasalah dashboard tetap tampil dengan data yang ada).
+        $sinkron->cerminkanKatalogDiam();
 
         // 1. Logika penentuan path sudah benar
         if ($user->role_id == 1) {
@@ -79,9 +84,15 @@ class DashboardController extends Controller
         }
         // ... (Bagian 3: Persiapan Visualisasi - sudah benar) ...
         $indicatorsWithVisualization = []; // Set default kosong
+        $galatApiBps = null;
 
         // HANYA ambil data visualisasi JIKA Indikator sudah benar-benar dipilih
         if ($selectedIndicatorId) {
+            // Indikator tabel dinamis BPS: data (seluruh tahun) diambil dari API saat dibuka, lalu disimpan
+            // agar filter AJAX, Lihat Data, dan narasi AI memakai data yang sama.
+            if ($indikatorDipilih = Indicator::find($selectedIndicatorId)) {
+                $galatApiBps = $sinkron->pastikanSegar($indikatorDipilih);
+            }
             $indicatorQuery = Indicator::query()->where('id', $selectedIndicatorId);
             $indicatorsWithVisualization = $this->prepareIndicatorsForVisualization($indicatorQuery);
         }
@@ -99,6 +110,7 @@ class DashboardController extends Controller
             'selectedSubjectId' => $selectedSubjectId ? intval($selectedSubjectId) : null,
             'selectedIndicatorId' => $selectedIndicatorId ? intval($selectedIndicatorId) : null,
             'indicatorsWithVisualization' => $indicatorsWithVisualization,
+            'galatApiBps' => $galatApiBps,
         ]);
     }
 
@@ -138,6 +150,12 @@ class DashboardController extends Controller
                     }
                 }
                 if (empty($parsedData['available_types'])) continue;
+
+                // Tabel dinamis BPS: jenis grafik bawaan BPS (graph_name di WebAPI) ditampilkan paling depan.
+                $parsedData['available_types'] = array_values($parsedData['available_types']);
+                if ($indicator->bps_chart && in_array($indicator->bps_chart, $parsedData['available_types'], true)) {
+                    $parsedData['available_types'] = array_values(array_unique([$indicator->bps_chart, ...$parsedData['available_types']]));
+                }
                 $result[] = [
                     'id' => $indicator->id,
                     'name' => $indicator->name,
@@ -148,6 +166,7 @@ class DashboardController extends Controller
                     'filters' => $parsedData['filters'],
                     'visualization_config' => $parsedData['config'],
                     'narrative' => $indicator->narrative->content ?? '',
+                    'sumber_bps' => $indicator->bps_source ? ['diperbarui' => $indicator->bps_synced_at?->format('d-m-Y H:i')] : null,
                 ];
             }
         }
@@ -843,7 +862,7 @@ class DashboardController extends Controller
      * FUNGSI INTEGRASI AI (BARU)
      * ====================================================================
      */
-    public function generateNarrative(Request $request)
+    public function generateNarrative(Request $request, SinkronisasiBps $sinkron)
     {
         // 0. Hak akses: hanya Admin (1) dan Penanggung Jawab (3), sama seperti saveNarrative. Tombol
         // generate memang disembunyikan dari role lain, tetapi endpoint ini tetap bisa dipanggil langsung.
@@ -864,6 +883,9 @@ class DashboardController extends Controller
         if (!$indicator) {
             return response()->json(['error' => 'Indikator tidak ditemukan'], 404);
         }
+
+        // Indikator tabel dinamis BPS: AI menerima data terbaru dari API (seluruh tahun), sama dengan dashboard.
+        $sinkron->pastikanSegar($indicator);
 
         // 3. Persiapkan Data Payload
         // Decode data JSON dari database (karena di DB tersimpan sebagai string/json column)

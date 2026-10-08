@@ -130,6 +130,13 @@
             </h2>
         </div>
 
+        @if ($galatApiBps ?? null)
+            <div class="bg-orange-50 border border-orange-200 text-orange-800 px-4 py-3 rounded-lg mb-4 text-sm" role="alert">
+                Data terbaru dari WebAPI BPS gagal diambil, jadi yang tampil adalah data terakhir yang tersimpan.
+                <span class="block text-xs mt-1">{{ $galatApiBps }}</span>
+            </div>
+        @endif
+
         <div class="flex flex-col gap-8">
             @forelse ($indicatorsWithVisualization as $vis)
                 <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-4 md:p-6" id="vis-card-{{ $vis['id'] }}">
@@ -139,6 +146,9 @@
                         <div>
                             <h3 class="text-2xl font-bold text-gray-900 mb-1">{{ $vis['name'] }}</h3>
                             <p class="text-md text-gray-500">Subjek: {{ $vis['subject'] }}</p>
+                            @if (!empty($vis['sumber_bps']))
+                                <p class="text-sm text-gray-500">Sumber: Tabel Dinamis WebAPI BPS{{ $vis['sumber_bps']['diperbarui'] ? ' · diambil ' . $vis['sumber_bps']['diperbarui'] : '' }}</p>
+                            @endif
                         </div>
 
                         {{-- TOMBOL KHUSUS ADMIN (Role 1) & PENANGGUNG JAWAB (Role 3) --}}

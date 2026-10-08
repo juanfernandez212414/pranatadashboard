@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth; // <-- TAMBAHAN WAJIB
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\IndicatorExport;
+use App\Services\Bps\SinkronisasiBps;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Str;
 
@@ -44,7 +45,8 @@ class DataController extends Controller
         $categoryId = $request->input('category_id');
         $subjectId = $request->input('subject_id');
 
-        $query = Indicator::with('subject.category')->latest();
+        // id sebagai penentu kedua: indikator dari cermin katalog BPS dibuat dalam detik yang sama.
+        $query = Indicator::with('subject.category')->latest()->orderByDesc('id');
 
         if ($search) {
             $query->where('name', 'like', '%' . $search . '%');
@@ -101,6 +103,8 @@ class DataController extends Controller
     {
         $this->checkManageAccess();
 
+        // Indikator tabel dinamis BPS di dalamnya ikut terhapus; jangan dibuat lagi oleh cermin katalog.
+        SinkronisasiBps::abaikanTabelDiSubjek($category->subjects()->pluck('id')->all());
         $category->delete();
         return back()->with('success', 'Kategori berhasil dihapus.');
     }
@@ -138,6 +142,8 @@ class DataController extends Controller
     {
         $this->checkManageAccess();
 
+        // Indikator tabel dinamis BPS di dalamnya ikut terhapus; jangan dibuat lagi oleh cermin katalog.
+        SinkronisasiBps::abaikanTabelDiSubjek([$subject->id]);
         $subject->delete();
         return back()->with('success', 'Subjek berhasil dihapus.');
     }
@@ -218,6 +224,19 @@ class DataController extends Controller
     {
         $this->checkManageAccess();
 
+        // Indikator tabel dinamis BPS: datanya selalu diambil dari API, jadi hanya subjek, nama, dan satuan
+        // yang disimpan. Isian tabel dari form diabaikan agar tidak tertimpa diam-diam saat diperbarui.
+        if ($indicator->bps_source) {
+            $validated = $request->validate([
+                'subject_id' => 'required|exists:subjects,id',
+                'name' => 'required|string|max:255',
+                'unit' => 'nullable|string|max:50',
+            ]);
+            $indicator->update($validated);
+
+            return back()->with('success', 'Indikator berhasil diupdate. Data tabelnya tetap diambil otomatis dari WebAPI BPS.');
+        }
+
         $validated = $request->validate([
             'subject_id' => 'required|exists:subjects,id',
             'name' => 'required|string|max:255',
@@ -281,6 +300,8 @@ class DataController extends Controller
     {
         $this->checkManageAccess();
 
+        // Indikator dari katalog tabel dinamis BPS tidak dibuat lagi oleh cermin katalog otomatis.
+        SinkronisasiBps::abaikanTabel($indicator);
         $indicator->delete();
         return back()->with('success', 'Indikator berhasil dihapus.');
     }
@@ -316,9 +337,10 @@ class DataController extends Controller
     }
 
     // Menampilkan detail data beserta grafiknya.
-    public function showDataDetail($id)
+    public function showDataDetail($id, SinkronisasiBps $sinkron)
     {
         $indicator = Indicator::with('subject.category')->findOrFail($id);
+        $galatApiBps = $sinkron->pastikanSegar($indicator); // indikator tabel dinamis BPS: data terbaru dari API
 
         // View dinamis berdasarkan role
         $user = Auth::user();
@@ -330,25 +352,27 @@ class DataController extends Controller
             $viewPath = 'pengguna.tampilandata';
         }
 
-        return view($viewPath, compact('indicator'));
+        return view($viewPath, compact('indicator', 'galatApiBps'));
     }
 
     // ===========================================
     // --- EXPORT & IMPORT ---
     // ===========================================
-    public function exportExcel($id)
+    public function exportExcel($id, SinkronisasiBps $sinkron)
     {
         // Semua role bisa export
         $indicator = Indicator::findOrFail($id);
+        $sinkron->pastikanSegar($indicator);
         $fileName = 'Data_Indikator_' . Str::slug($indicator->name) . '.xlsx';
         return Excel::download(new IndicatorExport($indicator), $fileName);
     }
 
     // Mengekspor data indikator ke format file PDF.
-    public function exportPdf($id)
+    public function exportPdf($id, SinkronisasiBps $sinkron)
     {
         // Semua role bisa export
         $indicator = Indicator::with('subject.category')->findOrFail($id);
+        $sinkron->pastikanSegar($indicator);
         $fileName = 'Data_Indikator_' . Str::slug($indicator->name) . '.pdf';
 
         // KODE BARU: Mengarah langsung ke folder views

@@ -212,6 +212,8 @@
                 @endforeach
             </tbody>
         </table>
+    @elseif (empty($indicator->data))
+        <p>Data indikator ini belum tersedia.</p>
     @else
         <table class="data-table">
             <thead>
@@ -221,7 +223,7 @@
                 </tr>
             </thead>
             <tbody>
-                @foreach ($indicator->data as $key => $value)
+                @foreach ($indicator->data ?? [] as $key => $value)
                     @if (!is_array($value))
                         @php
                             $val = trim(str_replace(['&nbsp;', "\xc2\xa0"], ' ', (string) $value));

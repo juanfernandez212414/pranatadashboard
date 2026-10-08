@@ -62,7 +62,19 @@
                     <span class="font-bold text-gray-800 text-sm">{{ $indicator->unit ?? 'N/A' }}</span>
                 </div>
             </div>
+            @if ($indicator->bps_source)
+                <p class="mt-4 text-xs text-gray-500">
+                    Sumber: Tabel Dinamis WebAPI BPS{{ $indicator->bps_synced_at ? ' · data diambil ' . $indicator->bps_synced_at->format('d-m-Y H:i') : '' }}
+                </p>
+            @endif
         </div>
+
+        @if ($galatApiBps ?? null)
+            <div class="bg-orange-50 border border-orange-200 text-orange-800 px-4 py-3 rounded-lg text-sm" role="alert">
+                Data terbaru dari WebAPI BPS gagal diambil{{ empty($indicator->data) ? '' : ', jadi yang tampil adalah data terakhir yang tersimpan' }}.
+                <span class="block text-xs mt-1">{{ $galatApiBps }}</span>
+            </div>
+        @endif
 
         {{-- Tabel Visualisasi Data --}}
         <div class="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
@@ -192,6 +204,10 @@
                             @endforeach
                         </tbody>
                     </table>
+                @elseif (empty($indicator->data))
+                    <p class="p-8 text-center text-sm text-gray-500">
+                        Data indikator ini belum tersedia.{{ $indicator->bps_source ? ' Datanya diambil dari WebAPI BPS saat dibuka; coba muat ulang halaman beberapa saat lagi.' : '' }}
+                    </p>
                 @else
                     <table class="w-full text-left border-collapse">
                         <thead class="bg-gray-100">
@@ -205,7 +221,7 @@
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-100">
-                            @foreach ($indicator->data as $key => $value)
+                            @foreach ($indicator->data ?? [] as $key => $value)
                                 @if (!is_array($value))
                                     @php
                                         // Bersihkan spasi gaib

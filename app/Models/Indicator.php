@@ -9,7 +9,7 @@ class Indicator extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['subject_id', 'user_id', 'name', 'unit', 'data', 'bps_source', 'bps_table_id', 'bps_options', 'bps_synced_at'];
+    protected $fillable = ['subject_id', 'user_id', 'name', 'unit', 'data', 'bps_source', 'bps_table_id', 'bps_options', 'bps_chart', 'bps_synced_at'];
 
     protected $casts = [
         'data' => 'array',

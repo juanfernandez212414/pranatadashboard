@@ -38,6 +38,11 @@ class IndicatorExport implements FromArray, ShouldAutoSize, WithEvents, WithStyl
                     }
                 }
             }
+            // Tanpa data (mis. indikator tabel dinamis BPS yang belum berhasil diambil dari API) berkas
+            // tetap dibuat berisi keterangan; lembar kosong membuat penentuan kolom terakhir gagal.
+            if ($this->sheetData === []) {
+                $this->sheetData[] = ['Data indikator ini belum tersedia.'];
+            }
             return;
         }
 

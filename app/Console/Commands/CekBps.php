@@ -2,28 +2,29 @@
 
 namespace App\Console\Commands;
 
+use App\Models\Indicator;
 use App\Services\Bps\BpsApiClient;
 use App\Services\Bps\BpsApiException;
 use App\Services\Bps\SinkronisasiBps;
 use Illuminate\Console\Command;
 
 /**
- * Memeriksa koneksi ke WebAPI BPS dan isi tabelnya dari terminal.
+ * Memeriksa koneksi ke WebAPI BPS dan isi tabel dinamisnya dari terminal.
  *
- *   php artisan bps:cek                               uji kunci API & hitung tabel tiap sumber
- *   php artisan bps:cek simdasi                       daftar tabel SIMDASI (ID, judul, tahun)
- *   php artisan bps:cek simdasi <id_tabel>            pratinjau tabel seperti yang akan disimpan
- *   php artisan bps:cek simdasi <id_tabel> --mentah --tahun=2024   respons JSON mentah dari API
+ *   php artisan bps:cek                       uji kunci API & hitung tabel dinamis
+ *   php artisan bps:cek --daftar              daftar tabel dinamis (ID var, judul, subjek)
+ *   php artisan bps:cek 31                    pratinjau tabel dinamis var 31 (seluruh tahun)
+ *   php artisan bps:cek 31 --mentah --tahun=2024   respons JSON mentah dari API
  */
 class CekBps extends Command
 {
     protected $signature = 'bps:cek
-        {sumber? : simdasi, dinamis, atau statis}
-        {id? : ID tabel (id_tabel SIMDASI, ID var tabel dinamis, atau ID tabel statis)}
-        {--tahun= : Tahun data untuk --mentah (bawaan: tahun terbaru)}
+        {var? : ID var tabel dinamis untuk dipratinjau}
+        {--daftar : Tampilkan daftar semua tabel dinamis}
+        {--tahun= : Tahun data untuk --mentah (bawaan: 2 tahun terbaru)}
         {--mentah : Tampilkan respons JSON mentah dari API (kunci API disamarkan)}';
 
-    protected $description = 'Uji koneksi dan kunci WebAPI BPS, lihat daftar tabel, atau pratinjau isi satu tabel';
+    protected $description = 'Uji koneksi dan kunci WebAPI BPS, lihat daftar tabel dinamis, atau pratinjau isi satu tabel';
 
     public function handle(BpsApiClient $bps, SinkronisasiBps $sinkron): int
     {
@@ -36,19 +37,19 @@ class CekBps extends Command
             return self::FAILURE;
         }
 
-        $sumber = $this->argument('sumber');
-        if ($sumber !== null && !isset(SinkronisasiBps::SUMBER[$sumber])) {
-            $this->error('Sumber tidak dikenal. Gunakan: ' . implode(', ', array_keys(SinkronisasiBps::SUMBER)) . '.');
+        $var = $this->argument('var');
+        if ($var !== null && !ctype_digit((string) $var)) {
+            $this->error('ID var harus berupa angka, misalnya: php artisan bps:cek 31');
 
             return self::FAILURE;
         }
 
         try {
             return match (true) {
-                $sumber === null => $this->cekKoneksi($bps, $sinkron),
-                $this->argument('id') === null => $this->daftar($sinkron, $sumber),
-                $this->option('mentah') => $this->mentah($bps, $sinkron, $sumber, (string) $this->argument('id')),
-                default => $this->pratinjau($sinkron, $sumber, (string) $this->argument('id')),
+                $this->option('daftar') => $this->daftar($sinkron),
+                $var === null => $this->cekKoneksi($bps, $sinkron),
+                (bool) $this->option('mentah') => $this->mentah($bps, (int) $var),
+                default => $this->pratinjau($sinkron, (int) $var),
             };
         } catch (BpsApiException $e) {
             $this->error($e->getMessage());
@@ -59,49 +60,42 @@ class CekBps extends Command
 
     private function cekKoneksi(BpsApiClient $bps, SinkronisasiBps $sinkron): int
     {
-        $this->line("Domain BPS: {$bps->domain()} · wilayah SIMDASI: {$bps->wilayahSimdasi()}");
+        $this->line("Domain BPS: {$bps->domain()}");
         $bps->ambil('list', ['model' => 'subcatcsa', 'lang' => 'ind', 'domain' => $bps->domain()], pakaiCache: false);
         $this->info('Koneksi berhasil: kunci API diterima WebAPI BPS.');
-        $this->newLine();
 
-        foreach (SinkronisasiBps::SUMBER as $kunci => $nama) {
-            try {
-                $this->line(sprintf('%-28s %d tabel', $nama, count($sinkron->katalog($kunci))));
-            } catch (BpsApiException $e) {
-                $this->line(sprintf('%-28s <error>gagal: %s</error>', $nama, $e->getMessage()));
-            }
-        }
-
+        $jumlahTabel = count($sinkron->katalog());
+        $jumlahIndikator = Indicator::where('bps_source', SinkronisasiBps::SUMBER)->count();
+        $this->line("Tabel dinamis di BPS: {$jumlahTabel}. Indikator PRANATA yang tertaut API: {$jumlahIndikator}.");
         $this->newLine();
-        $this->line('Impor semua tabel publikasi: php artisan bps:sinkron --impor=simdasi');
-        $this->line('Atau buka menu Data API BPS > Sinkronisasi Semua Tabel.');
+        $this->line('Tabel dinamis otomatis muncul di dashboard. Untuk membuat semuanya sekarang: php artisan bps:sinkron');
 
         return self::SUCCESS;
     }
 
-    private function daftar(SinkronisasiBps $sinkron, string $sumber): int
+    private function daftar(SinkronisasiBps $sinkron): int
     {
-        $katalog = $sinkron->katalog($sumber);
-        $this->table(['ID', 'Judul', 'Subjek', 'Tahun'], array_map(fn ($t) => [
+        $katalog = $sinkron->katalog();
+        $this->table(['ID var', 'Judul', 'Kategori', 'Subjek'], array_map(fn ($t) => [
             $t['id'],
-            mb_strimwidth(trim($t['kode'] . ' ' . $t['judul']), 0, 80, '…'),
+            mb_strimwidth($t['judul'], 0, 70, '…'),
+            mb_strimwidth($t['kategori'], 0, 30, '…'),
             mb_strimwidth($t['subjek'], 0, 30, '…'),
-            $t['tahun'] ? reset($t['tahun']) . '–' . end($t['tahun']) : '',
         ], $katalog));
-        $this->info(count($katalog) . ' tabel.');
+        $this->info(count($katalog) . ' tabel dinamis.');
 
         return self::SUCCESS;
     }
 
-    private function pratinjau(SinkronisasiBps $sinkron, string $sumber, string $id): int
+    private function pratinjau(SinkronisasiBps $sinkron, int $var): int
     {
-        $tabel = $sinkron->ambilTabel($sumber, $id);
+        $tabel = $sinkron->tabelDinamis($var);
         $this->info($tabel['judul']);
-        $this->line('Satuan: ' . ($tabel['satuan'] ?: '-') . ' · Tahun berisi data: ' . (implode(', ', $tabel['tahun']) ?: '-'));
+        $this->line('Satuan: ' . ($tabel['satuan'] ?: '-') . ' · Tahun tersedia: ' . (implode(', ', array_reverse($tabel['tahunDipilih'])) ?: '-'));
 
         $m = $tabel['matriks'];
         if (empty($m['rows'])) {
-            $this->warn('Tabel tidak berisi data yang bisa dibaca. Lihat respons mentahnya dengan opsi --mentah.');
+            $this->warn('Tabel ini belum berisi data. Lihat respons mentahnya dengan opsi --mentah.');
 
             return self::FAILURE;
         }
@@ -115,31 +109,16 @@ class CekBps extends Command
         return self::SUCCESS;
     }
 
-    private function mentah(BpsApiClient $bps, SinkronisasiBps $sinkron, string $sumber, string $id): int
+    private function mentah(BpsApiClient $bps, int $var): int
     {
-        [$jalur, $parameter] = match ($sumber) {
-            'simdasi' => ['interoperabilitas/datasource/simdasi/id/25', [
-                'tahun' => (int) ($this->option('tahun') ?: (collect($sinkron->cariDiKatalog('simdasi', $id)['tahun'] ?? [])->last() ?? date('Y'))),
-                'id_tabel' => $id,
-                'wilayah' => $bps->wilayahSimdasi(),
-            ]],
-            'statis' => ['view', ['model' => 'statictable', 'lang' => 'ind', 'domain' => $bps->domain(), 'id' => (int) $id]],
-            'dinamis' => ['list', ['model' => 'data', 'lang' => 'ind', 'domain' => $bps->domain(), 'var' => (int) $id,
-                'th' => implode(';', array_slice(array_keys($this->tahunDinamis($bps, (int) $id)), 0, 2))]],
-        };
+        $tahun = $bps->tahunVariabel($var); // [th_id => '2024'], terbaru dulu
+        $dipilih = $this->option('tahun') ? array_intersect($tahun, [(string) $this->option('tahun')]) : array_slice($tahun, 0, 2, true);
+        $parameter = ['model' => 'data', 'lang' => 'ind', 'domain' => $bps->domain(), 'var' => $var, 'th' => implode(';', array_keys($dipilih))];
 
-        $this->line('GET ' . $bps->alamatTersamar($jalur, $parameter));
-        $json = $bps->ambil($jalur, $parameter, pakaiCache: false);
+        $this->line('GET ' . $bps->alamatTersamar('list', $parameter));
+        $json = $bps->ambil('list', $parameter, pakaiCache: false);
         $this->line($json === null ? 'null (tidak ada data)' : json_encode($json, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
 
         return self::SUCCESS;
-    }
-
-    private function tahunDinamis(BpsApiClient $bps, int $id): array
-    {
-        $tahun = $bps->tahunVariabel($id);
-        $pilihan = $this->option('tahun') ? array_intersect($tahun, [(string) $this->option('tahun')]) : $tahun;
-
-        return $pilihan ?: $tahun;
     }
 }

@@ -42,7 +42,7 @@
     <div>
         <h3 class="font-semibold text-gray-900">Simpan sebagai indikator</h3>
         <p class="text-sm text-gray-500">Indikator muncul di Kelola Data dan Lihat Data, dan bisa langsung dipakai dashboard serta narasi AI.
-            Indikator ini tertaut ke API: tombol Perbarui di tab Sinkronisasi Semua Tabel mengambil ulang datanya dengan seluruh tahun yang tersedia.</p>
+            Indikator ini tertaut ke API: setiap kali dibuka, datanya diperbarui dari WebAPI BPS dengan seluruh tahun yang tersedia.</p>
     </div>
 
     <div class="flex flex-col sm:flex-row gap-3 text-sm">

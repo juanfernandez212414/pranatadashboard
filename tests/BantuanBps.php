@@ -1,12 +1,7 @@
 <?php
 
 // Pembantu tes WebAPI BPS (DataBpsTest, SinkronisasiBpsTest). Dimuat dari tests/Pest.php.
-//
-// Fixture di tests/Fixtures/bps:
-// - data_*, th_*, turvar_*, vervar_*, turth_*, var_daftar, kategori_csa, subjek_csa, publikasi_*:
-//   cuplikan respons asli domain 1273 (Oktober 2026).
-// - simdasi_*, statis_*, subjek_lama: disusun mengikuti contoh di dokumentasi WebAPI BPS
-//   (webapi.bps.go.id/documentation), belum dicocokkan dengan respons asli.
+// Fixture di tests/Fixtures/bps: cuplikan respons asli domain 1273 (Oktober 2026).
 
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
@@ -47,26 +42,6 @@ function palsukanBps(array $timpa = []): void
         parse_str((string) parse_url($url, PHP_URL_QUERY), $q);
         $jalur = (string) parse_url($url, PHP_URL_PATH);
 
-        // SIMDASI ditulis bergaya jalur: .../simdasi/id/25/tahun/2024/id_tabel/.../wilayah/1273000/key/.../
-        if (preg_match('#/interoperabilitas/datasource/simdasi/id/(\d+)/(.*)$#', $jalur, $m)) {
-            $segmen = array_map('rawurldecode', explode('/', trim($m[2], '/')));
-            $p = [];
-            for ($i = 0; $i + 1 < count($segmen); $i += 2) {
-                $p[$segmen[$i]] = $segmen[$i + 1];
-            }
-            $berkas = match ($m[1]) {
-                '23' => ($p['wilayah'] ?? '') === '1273000' ? 'simdasi_daftar.json' : 'simdasi_tidak_ada.json',
-                '25' => match ($p['id_tabel'] ?? '') {
-                    'UFpWMmJZOVZlZTJnc1pXaHhDV1hPQT09' => "simdasi_luas_{$p['tahun']}.json",
-                    'c2ltZGFzaS9wZW5kdWR1aw==' => "simdasi_penduduk_{$p['tahun']}.json",
-                    default => 'simdasi_tidak_ada.json',
-                },
-                default => 'simdasi_tidak_ada.json',
-            };
-
-            return Http::response(fixtureBps(is_file(__DIR__ . '/Fixtures/bps/' . $berkas) ? $berkas : 'simdasi_tidak_ada.json'));
-        }
-
         if (str_ends_with($jalur, '/download.php')) {
             return Http::response("%PDF-1.4\n% PDF uji\n", 200, ['Content-Type' => 'application/pdf']);
         }
@@ -92,12 +67,9 @@ function palsukanBps(array $timpa = []): void
                 'vervar' => "vervar_{$var}.json",
                 'turth' => 'turth_tahunan.json',
                 'publication' => 'publikasi_daftar.json',
-                'statictable' => 'statis_daftar.json',
-                'subject' => 'subjek_lama.json',
                 default => null,
             },
             str_ends_with($jalur, '/view') && ($q['model'] ?? '') === 'publication' => 'publikasi_detail.json',
-            str_ends_with($jalur, '/view') && ($q['model'] ?? '') === 'statictable' => 'statis_detail_' . ($q['id'] ?? '') . '.json',
             default => null,
         };
 

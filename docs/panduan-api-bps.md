@@ -1,12 +1,18 @@
-# Panduan Menghubungkan PRANATA ke WebAPI BPS
+# Panduan Menghubungkan PRANATA ke WebAPI BPS (Tabel Dinamis)
 
-PRANATA mengambil tabel statistik dan publikasi BPS Kota Pematangsiantar langsung dari
-[WebAPI BPS](https://webapi.bps.go.id/documentation). Tabel yang diambil disimpan sebagai **indikator**,
-sehingga Dashboard, Lihat Data, ekspor Excel/PDF, dan narasi AI langsung memakai data dari API.
+Dashboard PRANATA memakai **tabel dinamis** BPS Kota Pematangsiantar langsung dari
+[WebAPI BPS](https://webapi.bps.go.id/documentation). Tidak ada langkah impor manual:
+
+1. **Semua tabel dinamis otomatis menjadi indikator.** Setiap tabel dinamis di BPS dibuatkan indikator,
+   dikelompokkan menurut kategori dan subjek BPS (klasifikasi CSA, sama dengan situs BPS). Daftar tabel dicek
+   ulang berkala, jadi tabel baru di BPS ikut muncul sendiri.
+2. **Data dibaca dari API saat dibuka.** Saat indikator dibuka di Dashboard, Lihat Data, ekspor Excel/PDF,
+   atau saat narasi AI dibuat, datanya (**seluruh tahun**) diambil dari API lalu disimpan. Halaman lain dan
+   narasi AI (RAG) memakai data yang sama. Bila API sedang gagal, data terakhir yang tersimpan tetap dipakai.
 
 ## 1. Memasang kunci API
 
-1. Masuk ke [webapi.bps.go.id](https://webapi.bps.go.id), buka menu aplikasi/kunci Anda, lalu salin **key**.
+1. Masuk ke [webapi.bps.go.id](https://webapi.bps.go.id), lalu salin **key** aplikasi Anda.
 2. Buka file `.env` di folder proyek PRANATA, lalu isi:
 
    ```env
@@ -14,9 +20,8 @@ sehingga Dashboard, Lihat Data, ekspor Excel/PDF, dan narasi AI langsung memakai
    BPS_DOMAIN=1273
    ```
 
-   `1273` adalah domain BPS Kota Pematangsiantar. `BPS_SIMDASI_WILAYAH` boleh dikosongkan
-   (otomatis `1273000`, kode wilayah tabel publikasi SIMDASI).
-3. Jalankan migrasi (sekali saja, menambah kolom tautan API pada tabel indikator) dan bersihkan cache konfigurasi:
+   `1273` adalah domain BPS Kota Pematangsiantar.
+3. Jalankan migrasi dan bersihkan cache konfigurasi:
 
    ```bash
    php artisan migrate
@@ -29,66 +34,54 @@ sehingga Dashboard, Lihat Data, ekspor Excel/PDF, dan narasi AI langsung memakai
    php artisan bps:cek
    ```
 
-   Bila berhasil, muncul `Koneksi berhasil: kunci API diterima WebAPI BPS.` beserta jumlah tabel tiap sumber.
+   Bila berhasil, muncul `Koneksi berhasil: kunci API diterima WebAPI BPS.` beserta jumlah tabel dinamis.
+5. Buka Dashboard. Kategori dan indikator dari tabel dinamis BPS langsung muncul di menu.
 
-## 2. Sumber data yang diambil
+## 2. Hal yang perlu diketahui
 
-| Sumber | Isi | Tahun yang diambil |
-| --- | --- | --- |
-| **Tabel Publikasi (SIMDASI)** | Tabel-tabel publikasi *Kota Pematangsiantar Dalam Angka* | Semua tahun di `ketersediaan_tahun`, digabung dalam satu indikator |
-| **Tabel Dinamis** | Tabel dinamis di situs BPS (model `var`/`data`) | Semua tahun, karakteristik, dan judul baris |
-| **Tabel Statis** | Tabel statis (HTML) di situs BPS | Satu tabel menjadi satu indikator |
-| **Publikasi (PDF)** | Berkas publikasi | Disimpan ke basis pengetahuan AI (tab Publikasi) |
+- **Kecepatan.** Membuka indikator pertama kali (atau setelah datanya lebih tua dari `BPS_SEGAR_MENIT`,
+  bawaan 360 menit) butuh beberapa detik karena data diambil dari API. Setelah itu data tersimpan dipakai.
+- **Indikator lama bernama sama.** Indikator yang dibuat manual/impor Excel dan namanya persis sama dengan
+  tabel dinamis BPS ditautkan ke API; datanya diganti data API saat dibuka. Nama dan subjeknya tetap.
+- **Mengedit indikator API** di Kelola Data hanya menyimpan nama, subjek, dan satuan. Tabel datanya selalu
+  dari API. Indikator API ditandai label **API BPS**.
+- **Menghapus indikator API** (atau subjek/kategorinya) membuat tabel itu tidak dibuat ulang otomatis. Untuk
+  memunculkannya lagi: menu **Data API BPS → "tabel disembunyikan" → Tampilkan lagi**.
+- **Jenis grafik** yang disarankan BPS untuk tabel itu (garis/batang) ditampilkan paling depan di dashboard.
+- Tab **Tabel Dinamis** di menu Data API BPS tetap bisa dipakai untuk menyimpan potongan tabel (mis. hanya
+  beberapa kecamatan) sebagai indikator tersendiri; datanya juga diperbarui dari API saat dibuka.
 
-## 3. Mengimpor tabel menjadi indikator
+## 3. Pembaruan otomatis (opsional)
 
-**Dari aplikasi:** menu **Data API BPS → Sinkronisasi Semua Tabel**.
+Tanpa penjadwal pun data sudah diperbarui saat dibuka. Agar semua data juga diperbarui tiap malam
+(pukul 02.00), jalankan penjadwal Laravel: `php artisan schedule:work` saat pengembangan, atau
+cron/Task Scheduler yang menjalankan `php artisan schedule:run` setiap menit di server.
 
-1. Pilih sumber (Tabel Publikasi, Tabel Dinamis, atau Tabel Statis).
-2. Centang tabel yang diinginkan, atau klik **Pilih Semua yang Tampil**.
-3. Pilih **Subjek tujuan**. Pilihan bawaan *Otomatis* memakai subjek PRANATA yang namanya sama dengan
-   subjek BPS. Bila belum ada, kategori dan subjeknya dibuat mengikuti BPS (untuk SIMDASI: bab dan subjek publikasi).
-4. Klik **Impor yang Dipilih**. Tabel diproses satu per satu dan kemajuannya ditampilkan.
-
-Aturan penyimpanan:
-
-- Tabel yang sudah menjadi indikator **diperbarui**, tidak dibuat ganda.
-- Tabel yang namanya sama dengan indikator lama (misalnya hasil impor Excel) **menautkan** indikator
-  tersebut ke API dan mengganti datanya. Nama dan subjek indikator tetap.
-
-**Dari terminal:**
+Manual dari terminal:
 
 ```bash
-php artisan bps:sinkron --impor=simdasi           # semua tabel publikasi
-php artisan bps:sinkron --impor=simdasi,dinamis   # beberapa sumber
-php artisan bps:sinkron --impor=semua             # termasuk tabel statis
+php artisan bps:sinkron                 # buat indikator tabel baru + ambil ulang data semua indikator API
+php artisan bps:sinkron --hanya-katalog # hanya buat indikator untuk tabel baru
 ```
 
-## 4. Memperbarui data
+Di aplikasi: tombol **Cek Tabel Baru Sekarang** di menu Data API BPS.
 
-- Di aplikasi: tombol **Perbarui Semua dari API** (atau **Perbarui** per indikator) di tab Sinkronisasi.
-- Di terminal: `php artisan bps:sinkron`
-- Otomatis setiap hari pukul 02.00 bila penjadwal Laravel berjalan: `php artisan schedule:work` saat
-  pengembangan, atau cron/Task Scheduler yang menjalankan `php artisan schedule:run` setiap menit di server.
-
-## 5. Bila ada masalah
+## 4. Bila ada masalah
 
 | Pesan | Penyebab dan solusi |
 | --- | --- |
 | `Kunci API BPS belum diisi` | `BPS_API_KEY` kosong, atau `php artisan config:clear` belum dijalankan. |
 | `Kunci API BPS ditolak` | Key salah atau tidak aktif. Periksa di webapi.bps.go.id. |
-| `Permintaan ditolak firewall WebAPI BPS (HTTP 403)` | Terlalu banyak permintaan. Tunggu beberapa saat lalu coba lagi. |
-| `Tabel ... tidak berisi data yang bisa dibaca` | Lihat respons asli API dengan `php artisan bps:cek <sumber> <id> --mentah`. |
+| `Permintaan ditolak firewall WebAPI BPS (HTTP 403)` | Terlalu banyak permintaan. Tunggu beberapa saat. |
+| Dashboard: "Data terbaru dari WebAPI BPS gagal diambil" | API sedang bermasalah; data terakhir tetap ditampilkan. |
 
-Perintah pemeriksaan lain:
+Perintah pemeriksaan:
 
 ```bash
-php artisan bps:cek simdasi                      # daftar tabel SIMDASI (ID, judul, tahun)
-php artisan bps:cek simdasi <id_tabel>           # pratinjau tabel seperti yang akan disimpan
-php artisan bps:cek simdasi <id_tabel> --mentah --tahun=2024   # respons JSON mentah (kunci disamarkan)
-php artisan bps:cek dinamis 31                   # pratinjau tabel dinamis
-php artisan bps:cek statis <table_id>            # pratinjau tabel statis
+php artisan bps:cek --daftar               # daftar tabel dinamis (ID var, judul, kategori, subjek)
+php artisan bps:cek 31                     # pratinjau tabel dinamis var 31 (seluruh tahun)
+php artisan bps:cek 31 --mentah --tahun=2024   # respons JSON mentah dari API (kunci disamarkan)
 ```
 
-Respons API disimpan di cache selama `BPS_CACHE_MENIT` menit (bawaan 360), agar halaman cepat dan kuota API hemat.
-Pembaruan (tombol **Perbarui** dan `php artisan bps:sinkron`) selalu mengambil ulang data dari API.
+Pengaturan di `.env` (opsional): `BPS_SEGAR_MENIT` (umur data sebelum diambil ulang, bawaan 360),
+`BPS_KATALOG_MENIT` (selang cek tabel baru, bawaan 360), `BPS_CACHE_MENIT` (cache respons API, bawaan 360).
