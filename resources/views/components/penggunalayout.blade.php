@@ -155,10 +155,14 @@
                         </button>
                     </form>
                 @else
-                    {{-- Halaman ini terbuka untuk publik; login hanya untuk petugas (membuat narasi & mengelola data). --}}
-                    <a href="{{ route('login') }}"
-                        class="block w-full text-center bg-gradient-to-r from-[#002D72] to-[#003d8f] hover:from-[#003d8f] hover:to-[#0050b3] text-white font-bold py-2.5 px-5 rounded-2xl transition-all duration-200 shadow-lg hover:shadow-xl text-[17px]">
-                        Login Petugas
+                    {{-- Halaman ini terbuka untuk publik. Petugas login lewat tombol "Login Petugas" di halaman utama. --}}
+                    <a href="{{ route('welcome') }}"
+                        class="flex items-center justify-center gap-2 w-full bg-gradient-to-r from-[#002D72] to-[#003d8f] hover:from-[#003d8f] hover:to-[#0050b3] text-white font-bold py-2.5 px-5 rounded-2xl transition-all duration-200 shadow-lg hover:shadow-xl text-[15px]">
+                        <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                        </svg>
+                        Kembali ke Beranda
                     </a>
                 @endauth
             </div>
@@ -200,18 +204,9 @@
                             class="w-8 h-8 sm:w-9 sm:h-9 md:w-[42px] md:h-[43px] rounded-full object-cover border-2 border-white/30 shadow-md transform hover:scale-105 transition-transform duration-200 flex-shrink-0">
                     </a>
                 @else
-                    <div class="flex items-center gap-3 min-w-0 flex-shrink-0 lg:flex-shrink">
-                        <div class="text-right hidden lg:block min-w-0">
-                            <p class="text-white text-[20px] font-bold leading-[34px] truncate">Selamat Datang di PRANATA</p>
-                            <p class="text-white text-[12px] font-semibold leading-[16px] truncate">Data dan narasi statistik terbuka untuk umum</p>
-                        </div>
-                        <a href="{{ route('login') }}" title="Login khusus petugas BPS" aria-label="Login Petugas"
-                            class="flex items-center gap-2 bg-white/10 hover:bg-white/20 border border-white/30 text-white text-xs sm:text-sm font-semibold px-3 py-2 rounded-lg transition-colors duration-200 flex-shrink-0">
-                            <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
-                            </svg><span class="hidden sm:inline">Login Petugas</span>
-                        </a>
+                    <div class="text-right hidden lg:block min-w-0 p-2 -mr-2">
+                        <p class="text-white text-[20px] font-bold leading-[34px] truncate">Selamat Datang di PRANATA</p>
+                        <p class="text-white text-[12px] font-semibold leading-[16px] truncate">Data dan narasi statistik terbuka untuk umum</p>
                     </div>
                 @endauth
             </header>

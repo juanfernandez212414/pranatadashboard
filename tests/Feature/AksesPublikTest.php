@@ -75,8 +75,9 @@ it('menampilkan dashboard dan narasi yang sudah diterbitkan kepada tamu tanpa lo
         ->assertSee('Jumlah penduduk meningkat pada 2024.')
         ->assertSee('Diterbitkan petugas BPS Kota Pematangsiantar')
         ->assertSee('tidak mengikuti filter grafik')
-        ->assertSee('Login Petugas')
-        ->assertSee(route('login'), false)
+        ->assertSee('Selamat Datang di PRANATA')
+        ->assertSee('Kembali ke Beranda')
+        ->assertDontSee('Login Petugas')
         // Tidak ada alat petugas: tombol Kelola Narasi, editor, rute generate/simpan, Logout, Pengaturan.
         ->assertDontSee('Kelola Narasi')
         ->assertDontSee('id="editor-' . $id . '"', false)
@@ -199,7 +200,7 @@ it('tetap meminta login untuk halaman akun dan area petugas', function () {
 it('mengarahkan Admin dan PJ yang login ke dashboard miliknya, sedangkan Pimpinan memakai dashboard publik', function () {
     $this->actingAs($this->pj)->get('/pengguna/dashboard')->assertRedirect('/penanggungjawab/dashboard');
     $this->actingAs($this->admin)->get('/pengguna/lihatdata')->assertRedirect('/admin/lihatdata');
-    $this->actingAs($this->pimpinan)->get('/pengguna/dashboard')->assertOk()->assertSee('Logout')->assertDontSee('Login Petugas');
+    $this->actingAs($this->pimpinan)->get('/pengguna/dashboard')->assertOk()->assertSee('Logout')->assertDontSee('Kembali ke Beranda');
 });
 
 it('menandai narasi yang datanya sudah berubah setelah narasi disimpan', function () {
