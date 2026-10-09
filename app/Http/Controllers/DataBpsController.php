@@ -187,6 +187,31 @@ class DataBpsController extends Controller
             : back()->with('error', "Indikator \"{$indicator->name}\" tidak bisa ditautkan: tidak ada tabel dinamis BPS dengan nama yang sama, atau sudah tertaut.");
     }
 
+    // Menautkan sekaligus semua indikator lama yang namanya sama dengan tabel dinamis BPS.
+    public function tautkanSemua()
+    {
+        $this->cekAkses();
+        @set_time_limit(90);
+
+        try {
+            $jumlah = $this->bps->denganBatasHalaman(function () {
+                $jumlah = 0;
+                foreach ($this->sinkron->kandidatTautan() as $k) {
+                    $indikator = Indicator::find($k['indikator']['id']);
+                    if ($indikator && $this->sinkron->tautkanIndikator($indikator)) {
+                        $jumlah++;
+                    }
+                }
+
+                return $jumlah;
+            });
+        } catch (BpsApiException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return back()->with('success', "{$jumlah} indikator lama kini memakai data tabel dinamis WebAPI BPS. Klik \"Impor Semua Tabel Dinamis\" untuk mengisi datanya.");
+    }
+
     // Tabel dinamis yang indikatornya pernah dihapus dimunculkan lagi sebagai indikator.
     public function pulihkanTabel(int $var)
     {

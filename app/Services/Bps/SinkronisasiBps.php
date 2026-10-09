@@ -6,6 +6,7 @@ use App\Models\Category;
 use App\Models\Indicator;
 use App\Models\Subject;
 use Illuminate\Contracts\Cache\LockTimeoutException;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -138,11 +139,15 @@ class SinkronisasiBps
         }
     }
 
-    // Satu tabel katalog menjadi indikator baru (datanya diambil saat pertama dibuka).
+    // Satu tabel katalog menjadi indikator baru (datanya diambil saat pertama dibuka). user_id (audit trail:
+    // siapa yang mengimpor) diisi Admin/PJ yang memicunya dari web, yaitu tombol "Impor Semua Tabel Dinamis",
+    // "Tampilkan lagi", atau saat membuka dashboard/Data API BPS. Kosong bila dijalankan penjadwal atau
+    // perintah artisan (tidak ada pengguna yang login).
     private function buatIndikator(array $t): void
     {
         Indicator::create(self::tautan($t) + [
             'subject_id' => $this->subjekTujuan($t)->id,
+            'user_id' => Auth::id(),
             'name' => self::potong($t['judul'], 255),
             'unit' => self::potong($t['satuan'], 50) ?: null,
             'data' => null,

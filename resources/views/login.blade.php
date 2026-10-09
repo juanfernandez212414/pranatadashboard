@@ -36,7 +36,7 @@
                     <img src="{{ asset('images/LogoPRANATA.png') }}" alt="Logo PRANATA" class="h-16 w-auto object-contain">
                 </div>
                 <h1 class="text-3xl font-bold text-gray-800 tracking-tight">PRANATA</h1>
-                <p class="mt-1.5 text-sm text-gray-500">Login petugas BPS (Admin, Penanggung Jawab, Pimpinan)</p>
+                <p class="mt-1.5 text-sm text-gray-500">Login petugas BPS</p>
             </div>
 
             @if (session('status'))

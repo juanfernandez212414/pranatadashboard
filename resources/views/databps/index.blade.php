@@ -18,7 +18,17 @@
 
         @include('databps.partials.notifikasi')
 
-        {{-- Tabel dinamis BPS untuk dashboard: ringkasan & tombol impor semua --}}
+        <div class="flex gap-2 border-b border-gray-200 bg-white rounded-t-xl px-2 md:px-4 overflow-x-auto whitespace-nowrap">
+            @foreach ($daftarTab as $kunci => $t)
+                <a href="{{ $t['url'] }}"
+                    class="px-4 md:px-6 py-4 font-medium text-sm transition-all duration-200 border-b-2 {{ $tab === $kunci ? 'text-[#002D72] font-semibold border-[#002D72]' : 'text-gray-500 hover:text-gray-700 border-transparent' }}">
+                    {{ $t['label'] }}
+                </a>
+            @endforeach
+        </div>
+
+        {{-- Tabel dinamis BPS untuk dashboard: ringkasan & tombol impor semua (hanya di tab Tabel Dinamis) --}}
+        @if ($tab === 'dinamis')
         <div class="bg-white rounded-xl shadow-lg p-4 md:p-6 space-y-4"
             x-data="imporSemuaBps({{ Js::from(['mulai' => route($rute . 'databps.imporsemua'), 'satu' => route($rute . 'databps.imporsemua.satu', ['indicator' => 0])]) }})">
             <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -98,15 +108,7 @@
                 </ul>
             </div>
         </div>
-
-        <div class="flex gap-2 border-b border-gray-200 bg-white rounded-t-xl px-2 md:px-4 overflow-x-auto whitespace-nowrap">
-            @foreach ($daftarTab as $kunci => $t)
-                <a href="{{ $t['url'] }}"
-                    class="px-4 md:px-6 py-4 font-medium text-sm transition-all duration-200 border-b-2 {{ $tab === $kunci ? 'text-[#002D72] font-semibold border-[#002D72]' : 'text-gray-500 hover:text-gray-700 border-transparent' }}">
-                    {{ $t['label'] }}
-                </a>
-            @endforeach
-        </div>
+        @endif
 
         @include('databps.partials.tab-' . $tab)
     </div>

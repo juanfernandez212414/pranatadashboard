@@ -425,7 +425,9 @@ it('mengimpor semua tabel dinamis beserta datanya lewat tombol Impor Semua (satu
         ->assertOk()
         ->assertJsonPath('katalog.baru', 4)
         ->json('indikator');
-    expect($daftar)->toHaveCount(4);
+    expect($daftar)->toHaveCount(4)
+        // Audit trail: indikator hasil impor mencatat Penanggung Jawab yang menekan tombol.
+        ->and(Indicator::pluck('user_id')->unique()->all())->toBe([$this->pj->id]);
 
     $penduduk = collect($daftar)->firstWhere('nama', 'Penduduk per kecamatan');
     $this->actingAs($this->pj)->postJson("/penanggungjawab/data-bps/impor-semua/{$penduduk['id']}")
@@ -510,7 +512,9 @@ it('membuat indikator semua tabel dinamis dan mengambil datanya lewat php artisa
         ->expectsOutputToContain('2 indikator diperbarui, 2 gagal.')
         ->assertFailed();
 
-    expect(judulKolom(Indicator::where('bps_table_id', '31')->sole()))->toBe(['Kecamatan', '2020', '2023', '2024']);
+    expect(judulKolom(Indicator::where('bps_table_id', '31')->sole()))->toBe(['Kecamatan', '2020', '2023', '2024'])
+        // Dijalankan penjadwal/terminal: tidak ada pengguna yang login, jadi pengimpornya kosong.
+        ->and(Indicator::whereNotNull('user_id')->count())->toBe(0);
 });
 
 it('menghentikan bps:sinkron bila WebAPI BPS menolak permintaan (HTTP 403)', function () {

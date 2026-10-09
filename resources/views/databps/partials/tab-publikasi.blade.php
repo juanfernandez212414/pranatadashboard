@@ -12,12 +12,6 @@
     x-data="publikasiOtomatisBps({{ Js::from(['mulai' => route($rute . 'databps.publikasi.otomatis'), 'satu' => route($rute . 'databps.publikasi.otomatis.satu', ['id' => '__ID__']), 'sejak' => (string) $publikasiOtomatis['sejak'], 'kata' => $publikasiOtomatis['kata']]) }})">
     <div>
         <h3 class="text-lg md:text-xl font-semibold text-gray-900">Latih AI dengan publikasi BPS secara otomatis</h3>
-        <p class="text-sm text-gray-500">
-            Link PDF publikasi dari WebAPI BPS dikirim ke layanan AI, lalu server AI sendiri yang mengunduh dan mengekstraknya
-            ke basis pengetahuan (dipakai narasi AI): tanpa menyimpan PDF di server ini, tanpa unggah manual, dan tanpa klik
-            Ingest. Bila server AI tidak bisa mengunduh dari BPS, PDF diunduh di sini lalu dikirim. Publikasi yang sudah dilatih dilewati.
-            Penjadwal Laravel juga menjalankannya setiap malam pukul 03.00 WIB.
-        </p>
         @unless ($publikasiOtomatis['aiSiap'])
             <p class="text-sm text-orange-700 mt-1">Alamat layanan AI (HUGGINGFACE_API_URL) belum diisi di .env, jadi PDF hanya bisa diunduh.</p>
         @endunless
