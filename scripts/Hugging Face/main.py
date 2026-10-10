@@ -59,11 +59,6 @@ RAG_SCORE_THRESHOLD = 0.55
 # Jatah waktu total satu permintaan narasi. HARUS lebih kecil dari timeout Laravel (300 detik di
 # DashboardController::generateNarrative), supaya worker selalu menjawab sebelum Laravel menyerah.
 NARRATIVE_BUDGET_SECONDS = 240
-# Revisi (perbandingan model yang adil): semua model menerima masukan identik, yaitu system prompt
-# lengkap (SYSTEM_PROMPT_NARASI), user prompt yang sama, dan RAG_LIMIT potongan konteks RAG yang sama.
-# Prompt ringkas lama hanya dipakai bila environment PROMPT_RINGKAS=1 (misalnya kuota token sangat terbatas).
-PAKAI_PROMPT_RINGKAS = os.getenv("PROMPT_RINGKAS", "0") == "1"
-RAG_LIMIT = 3
 # Batas waktu SATU percobaan HTTP ke Gemini. Bawaan klien Interactions tidak punya timeout,
 # sehingga request bisa menggantung lama saat server Google sedang ramai.
 GEMINI_TIMEOUT_SECONDS = 150
@@ -612,8 +607,8 @@ def get_rag_context(query, limit=3):
 # =================================================================
 # SYSTEM PROMPT RINGKAS (Llama 3.3 70B dan GPT-OSS 120B, semua penyedia)
 # =================================================================
-# Awalnya dibuat untuk Groq (hemat token) dan dipakai Llama/GPT-OSS pada evaluasi awal. Sejak revisi,
-# semua model memakai SYSTEM_PROMPT_NARASI; prompt ringkas ini hanya aktif bila PROMPT_RINGKAS=1.
+# Awalnya dibuat untuk Groq (hemat token). Kini dipakai Llama dan GPT-OSS di penyedia mana pun,
+# sama dengan konfigurasi ringkas yang digunakan saat evaluasi. Gemini memakai SYSTEM_PROMPT_NARASI.
 def get_groq_compact_prompt():
     return """Anda adalah analis data senior dan editor publikasi Badan Pusat Statistik (BPS) yang berpengalaman menyusun Berita Resmi Statistik. Tulis narasi analisis statistik dalam Bahasa Indonesia baku yang akurat secara matematis dan setara kualitas publikasi resmi BPS.
 
@@ -847,19 +842,14 @@ def log_token_openai(label, chat, durasi_api):
         print(f"⚠️ Gagal mencatat pemakaian token {label}: {log_error}", flush=True)
 
 def generate_via_groq_fallback(category, subject, indicator, data_table, rag_query,
-                                groq_model="openai/gpt-oss-120b", context=None, extra_instruction="",
-                                system_prompt=None, user_prompt=None):
-    """Jalankan narasi via Groq Cloud (dipakai untuk GPT-OSS 120B). Bila system_prompt dan user_prompt
-    diberikan (prompt lengkap yang seragam untuk semua model), itu yang dikirim; kalau tidak, prompt ringkas."""
-    if system_prompt is not None and user_prompt is not None:
-        groq_system, groq_user = system_prompt + extra_instruction, user_prompt
-    else:
-        # Reuse context yang sudah diambil kalau ada (hemat 1 panggilan Qdrant); kalau tidak,
-        # ambil ulang dengan limit kecil supaya muat di TPM limit Groq.
-        groq_context = context if context is not None else get_rag_context(rag_query, limit=1)
-        groq_system, groq_user = build_compact_prompt(
-            category, subject, indicator, data_table, groq_context, extra_instruction
-        )
+                                groq_model="openai/gpt-oss-120b", context=None, extra_instruction=""):
+    """Jalankan narasi via Groq Cloud dengan prompt ringkas (dipakai untuk GPT-OSS 120B)."""
+    # Reuse context yang sudah diambil kalau ada (hemat 1 panggilan Qdrant); kalau tidak,
+    # ambil ulang dengan limit kecil supaya muat di TPM limit Groq.
+    groq_context = context if context is not None else get_rag_context(rag_query, limit=1)
+    groq_system, groq_user = build_compact_prompt(
+        category, subject, indicator, data_table, groq_context, extra_instruction
+    )
 
     # Khusus gpt-oss: level penalaran medium supaya tidak kehabisan token sebelum narasi ditulis.
     # Dikirim lewat extra_body supaya tetap jalan walaupun versi SDK groq di Space belum
@@ -894,7 +884,7 @@ GROQ_GPT_OSS_MODEL = "openai/gpt-oss-120b"
 
 def call_hf(model_id, system_prompt, user_prompt, extra_instruction=""):
     """Jalankan narasi via Hugging Face Inference API dengan prompt yang diberikan
-    (sejak revisi sama dengan prompt Gemini; prompt ringkas hanya bila PROMPT_RINGKAS=1)."""
+    (Llama dan GPT-OSS memakai prompt ringkas dari build_compact_prompt)."""
     if not client_hf:
         raise Exception("Koneksi Hugging Face belum dikonfigurasi (HF_TOKEN kosong).")
     print(f"🚀 Mengerjakan via Hugging Face Inference API ({model_id})...", flush=True)
@@ -919,16 +909,9 @@ def call_hf(model_id, system_prompt, user_prompt, extra_instruction=""):
 def call_narrative_provider(target_model, system_prompt, user_prompt, context, rag_query,
                              category, subject, indicator, data_table, extra_instruction=""):
     """Dispatch ke penyedia sesuai model yang DIPILIH USER dan kembalikan (narrative, label_model).
-    Semua model memakai prompt lengkap yang sama (system_prompt/user_prompt); prompt ringkas hanya
-    dipakai Llama dan GPT-OSS bila PROMPT_RINGKAS=1. Peralihan penyedia hanya terjadi untuk model
-    yang sama (GPT-OSS: Groq -> Hugging Face)."""
+    Gemini memakai prompt lengkap (system_prompt/user_prompt); Llama dan GPT-OSS memakai prompt ringkas.
+    Peralihan penyedia hanya terjadi untuk model yang sama (GPT-OSS: Groq -> Hugging Face)."""
     tl = (target_model or "").lower()
-
-    def prompt_untuk_model_terbuka():
-        """Prompt untuk Llama/GPT-OSS: sama persis dengan Gemini, kecuali mode ringkas diaktifkan."""
-        if PAKAI_PROMPT_RINGKAS:
-            return build_compact_prompt(category, subject, indicator, data_table, context, extra_instruction)
-        return system_prompt + extra_instruction, user_prompt
 
     # 1. GOOGLE GEMINI (semua versi lewat Interactions API dengan pengaturan yang sama)
     if "gemini" in tl:
@@ -972,9 +955,7 @@ def call_narrative_provider(target_model, system_prompt, user_prompt, context, r
                 print(f"🚀 Mengerjakan via Groq Cloud API ({GROQ_GPT_OSS_MODEL})...", flush=True)
                 narrative = generate_via_groq_fallback(
                     category, subject, indicator, data_table, rag_query,
-                    groq_model=GROQ_GPT_OSS_MODEL, context=context, extra_instruction=extra_instruction,
-                    system_prompt=None if PAKAI_PROMPT_RINGKAS else system_prompt,
-                    user_prompt=None if PAKAI_PROMPT_RINGKAS else user_prompt,
+                    groq_model=GROQ_GPT_OSS_MODEL, context=context, extra_instruction=extra_instruction
                 )
                 return narrative, f"Groq ({GROQ_GPT_OSS_MODEL})"
             except Exception as e:
@@ -983,9 +964,11 @@ def call_narrative_provider(target_model, system_prompt, user_prompt, context, r
                 print(f"🔄 [Fallback] GPT-OSS dialihkan ke Hugging Face ({HF_GPT_OSS_MODEL}), model yang sama.", flush=True)
         else:
             print("⚠️ GROQ_API_KEY kosong; GPT-OSS langsung dijalankan via Hugging Face.", flush=True)
-        sys_model, user_model = prompt_untuk_model_terbuka()
+        sys_ringkas, user_ringkas = build_compact_prompt(
+            category, subject, indicator, data_table, context, extra_instruction
+        )
         try:
-            narrative = call_hf(HF_GPT_OSS_MODEL, sys_model, user_model)
+            narrative = call_hf(HF_GPT_OSS_MODEL, sys_ringkas, user_ringkas)
         except Exception as hf_error:
             if groq_error:
                 raise Exception(f"Groq gagal ({groq_error}); fallback ke Hugging Face juga gagal ({hf_error})")
@@ -996,8 +979,10 @@ def call_narrative_provider(target_model, system_prompt, user_prompt, context, r
 
     # 3. LLAMA 3.3 70B: hanya Hugging Face
     elif "llama" in tl:
-        sys_model, user_model = prompt_untuk_model_terbuka()
-        narrative = call_hf(HF_LLAMA_MODEL, sys_model, user_model)
+        sys_ringkas, user_ringkas = build_compact_prompt(
+            category, subject, indicator, data_table, context, extra_instruction
+        )
+        narrative = call_hf(HF_LLAMA_MODEL, sys_ringkas, user_ringkas)
         return narrative, HF_LLAMA_MODEL
 
     else:
@@ -1044,10 +1029,10 @@ def generate_narrative(input_data: BPSDataInput):
 
     # Deteksi apakah akan butuh Groq (untuk menentukan jumlah RAG context)
     target_model = input_data.model_id
-    # Revisi (perbandingan adil): semua model memakai prompt lengkap dan RAG_LIMIT potongan konteks yang
-    # sama. Konfigurasi ringkas (1 potongan, prompt ringkas) hanya untuk Llama/GPT-OSS bila PROMPT_RINGKAS=1.
-    pakai_prompt_ringkas = PAKAI_PROMPT_RINGKAS and any(k in target_model.lower() for k in ("gpt-oss", "llama"))
-    rag_limit = 1 if pakai_prompt_ringkas else RAG_LIMIT
+    # Llama dan GPT-OSS memakai konfigurasi ringkas: prompt ringkas dan konteks RAG 1 potongan
+    # (sama dengan konfigurasi saat evaluasi). Gemini memakai prompt lengkap dan 3 potongan konteks.
+    pakai_prompt_ringkas = any(k in target_model.lower() for k in ("gpt-oss", "llama"))
+    rag_limit = 1 if pakai_prompt_ringkas else 3
     context = get_rag_context(rag_query, limit=rag_limit)
     
     system_prompt = SYSTEM_PROMPT_NARASI
