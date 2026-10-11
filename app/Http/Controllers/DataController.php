@@ -234,7 +234,7 @@ class DataController extends Controller
             ]);
             $indicator->update($validated);
 
-            return back()->with('success', 'Indikator berhasil diupdate. Data tabelnya tetap diambil otomatis dari WebAPI BPS.');
+            return back()->with('success', 'Indikator berhasil diupdate. Data tabelnya tetap diambil dari WebAPI BPS.');
         }
 
         $validated = $request->validate([

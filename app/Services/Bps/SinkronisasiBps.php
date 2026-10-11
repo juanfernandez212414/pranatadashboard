@@ -14,14 +14,15 @@ use Illuminate\Support\Facades\Log;
 /**
  * Tabel dinamis WebAPI BPS sebagai sumber data indikator PRANATA.
  *
- * 1. Cermin katalog: setiap tabel dinamis domain ini otomatis menjadi indikator (kategori & subjek
- *    mengikuti klasifikasi CSA di situs BPS), tanpa impor manual. Dijalankan berkala (paling sering sekali
- *    per services.bps.katalog_menit) saat Admin/PJ membuka dashboard atau Data API BPS, oleh penjadwal, dan
- *    oleh perintah "php artisan bps:sinkron". Indikator lama (manual/Excel) yang namanya sama dengan tabel
- *    BPS tidak ditimpa otomatis: Admin/PJ memilih sendiri untuk menautkannya (tautkanIndikator).
+ * 1. Cermin katalog: setiap tabel dinamis domain ini dibuatkan indikator (kategori & subjek mengikuti
+ *    klasifikasi CSA di situs BPS) lewat tombol "Impor Semua Tabel Dinamis" dan perintah
+ *    "php artisan bps:sinkron". Tidak berjalan otomatis saat halaman dibuka, kecuali
+ *    services.bps.katalog_otomatis diaktifkan (paling sering sekali per services.bps.katalog_menit saat
+ *    Admin/PJ membuka dashboard atau Data API BPS). Indikator lama (manual/Excel) yang namanya sama dengan
+ *    tabel BPS tidak ditimpa otomatis: Admin/PJ memilih sendiri untuk menautkannya (tautkanIndikator).
  * 2. Impor data: data seluruh tahun semua indikator diambil dari API dan disimpan di Indicator.data lewat
- *    tombol "Impor Semua Tabel Dinamis" (Data API BPS), perintah "php artisan bps:sinkron", dan penjadwal
- *    harian. Dashboard, Lihat Data, ekspor, dan narasi AI (RAG) membaca data tersimpan itu.
+ *    tombol "Impor Semua Tabel Dinamis" (Data API BPS) dan perintah "php artisan bps:sinkron"; tidak ada
+ *    jadwal otomatis. Dashboard, Lihat Data, ekspor, dan narasi AI (RAG) membaca data tersimpan itu.
  * 3. Cadangan saat dibuka (pastikanSegar): indikator yang datanya belum ada diambil dari API saat dibuka.
  *    Bila services.bps.segar_menit diisi (> 0), data yang lebih tua dari itu juga diambil ulang saat dibuka.
  *    Bila API gagal, data terakhir yang tersimpan tetap dipakai.
@@ -130,6 +131,12 @@ class SinkronisasiBps
      */
     public function cerminkanKatalogDiam(): void
     {
+        // Bawaan: tabel dinamis tidak otomatis menjadi indikator saat halaman dibuka (lihat services.bps.katalog_otomatis);
+        // indikator dibuat lewat tombol "Impor Semua Tabel Dinamis" atau "php artisan bps:sinkron".
+        if (!config('services.bps.katalog_otomatis', false)) {
+            return;
+        }
+
         try {
             $this->bps->denganBatasHalaman(fn () => $this->cerminkanKatalog());
         } catch (\Throwable $e) {
@@ -141,8 +148,8 @@ class SinkronisasiBps
 
     // Satu tabel katalog menjadi indikator baru (datanya diambil saat pertama dibuka). user_id (audit trail:
     // siapa yang mengimpor) diisi Admin/PJ yang memicunya dari web, yaitu tombol "Impor Semua Tabel Dinamis",
-    // "Tampilkan lagi", atau saat membuka dashboard/Data API BPS. Kosong bila dijalankan penjadwal atau
-    // perintah artisan (tidak ada pengguna yang login).
+    // "Tampilkan lagi", atau saat membuka dashboard/Data API BPS bila katalog otomatis diaktifkan. Kosong bila
+    // dijalankan lewat perintah artisan (tidak ada pengguna yang login).
     private function buatIndikator(array $t): void
     {
         Indicator::create(self::tautan($t) + [
@@ -265,7 +272,7 @@ class SinkronisasiBps
             return null;
         }
 
-        // segar_menit 0 (bawaan): data yang sudah diimpor dipakai apa adanya; diperbarui lewat impor/penjadwal.
+        // segar_menit 0 (bawaan): data yang sudah diimpor dipakai apa adanya; diperbarui hanya lewat impor manual.
         $menit = max(0, (int) config('services.bps.segar_menit', 0));
         $adaData = !empty($indikator->data['rows']);
         $kedaluwarsa = $menit > 0 && (!$indikator->bps_synced_at || $indikator->bps_synced_at->lt(now()->subMinutes($menit)));

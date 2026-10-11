@@ -9,7 +9,7 @@ use App\Services\Bps\SinkronisasiBps;
 use Illuminate\Console\Command;
 
 /**
- * Sinkronisasi tabel dinamis WebAPI BPS dari terminal (juga dijalankan harian oleh penjadwal Laravel):
+ * Sinkronisasi tabel dinamis WebAPI BPS dari terminal, dijalankan manual (tidak dijadwalkan otomatis):
  * 1. tabel dinamis baru di BPS dibuatkan indikator (cermin katalog),
  * 2. data semua indikator tertaut diambil ulang dari API (seluruh tahun).
  *

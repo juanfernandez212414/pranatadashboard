@@ -29,9 +29,9 @@ class DashboardController extends Controller
         // (int): role_id bisa terbaca sebagai teks dari database, sedangkan match/in_array di bawah ketat.
         $roleId = Auth::check() ? (int) Auth::user()->role_id : null;
 
-        // Tabel dinamis BPS yang baru muncul di API otomatis menjadi indikator (paling sering sekali per
-        // BPS_KATALOG_MENIT; bila API bermasalah dashboard tetap tampil dengan data yang ada). Hanya saat
-        // Admin/PJ membuka dashboard, agar Pengguna dan tamu tidak pernah menunggu daftar tabel dari API.
+        // Hanya bila BPS_KATALOG_OTOMATIS=true (bawaan false): tabel dinamis BPS yang baru muncul di API
+        // otomatis menjadi indikator (paling sering sekali per BPS_KATALOG_MENIT; bila API bermasalah dashboard
+        // tetap tampil). Hanya saat Admin/PJ membuka dashboard, agar Pengguna dan tamu tidak menunggu API.
         if (in_array($roleId, [1, 3], true)) {
             $sinkron->cerminkanKatalogDiam();
         }

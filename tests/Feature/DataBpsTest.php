@@ -32,7 +32,8 @@ beforeEach(function () {
     $this->artisan('migrate');
 
     Http::preventStrayRequests();
-    config(['services.bps.key' => 'kunci-uji-rahasia-123', 'services.bps.domain' => '1273']);
+    // Tes halaman ini ditulis untuk mode katalog otomatis (indikator tabel dinamis dibuat saat halaman dibuka).
+    config(['services.bps.key' => 'kunci-uji-rahasia-123', 'services.bps.domain' => '1273', 'services.bps.katalog_otomatis' => true]);
 
     $this->storage = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'pranata-uji-data-bps-' . uniqid();
     $this->folderPdf = $this->storage . '/app/public/dokumen_bps';

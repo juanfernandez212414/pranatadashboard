@@ -10,10 +10,11 @@ Dashboard PRANATA memakai **tabel dinamis** BPS Kota Pematangsiantar dari
 2. **Dashboard membaca database.** Dashboard, Lihat Data, ekspor Excel/PDF, dan narasi AI langsung memakai
    data tersimpan, jadi tidak menunggu API. API hanya dipanggil sebagai cadangan bila sebuah indikator
    belum punya data.
-3. **Pembaruan** lewat tombol yang sama atau penjadwal Laravel setiap malam pukul 02.00 WIB.
+3. **Pembaruan hanya manual** lewat tombol yang sama (atau `php artisan bps:sinkron`). Tabel dinamis tidak
+   dijadwalkan otomatis, agar data dan narasi yang tampil tidak berubah tanpa sepengetahuan petugas.
 
 ```
-WebAPI BPS ──(Impor Semua / bps:sinkron / jadwal malam)──► database (categories, subjects, indicators)
+WebAPI BPS ──(Impor Semua / bps:sinkron, manual)──► database (categories, subjects, indicators)
                                                               │
                                     Dashboard · Lihat Data · Ekspor · Narasi AI (RAG) ◄──┘
 ```
@@ -64,20 +65,23 @@ php artisan bps:sinkron --hanya-katalog # hanya membuat indikator untuk tabel ba
   BPS; klik **Pakai data API** bila ingin datanya diganti data API (nama, subjek, dan narasi tetap).
 - **Mengedit indikator API** di Kelola Data hanya menyimpan kategori, subjek, nama, dan satuan; tabel
   datanya selalu dari API. Indikator API ditandai label **API BPS**.
-- **Menghapus indikator API** (atau subjek/kategorinya) membuat tabel itu tidak dibuat ulang otomatis.
-  Untuk memunculkannya lagi: menu **Data API BPS → "tabel disembunyikan" → Tampilkan lagi**.
+- **Menghapus indikator API** (atau subjek/kategorinya) membuat tabel itu tidak dibuat ulang saat
+  Impor Semua berikutnya. Untuk memunculkannya lagi: menu **Data API BPS → "tabel disembunyikan" → Tampilkan lagi**.
 - **Tab Tabel Dinamis** tetap bisa dipakai untuk menyimpan **potongan** tabel (mis. hanya beberapa
-  kecamatan) sebagai indikator tersendiri. Tabel lengkapnya sudah otomatis ada, jadi tidak ditimpa/digandakan.
+  kecamatan) sebagai indikator tersendiri. Tabel lengkap hasil Impor Semua tidak ditimpa/digandakan.
 - **Bila API gagal**, data terakhir yang tersimpan tetap ditampilkan.
 - Di dashboard tertulis jenis grafik yang disarankan BPS untuk tabel itu (garis/batang/lingkaran).
 
-## 4. Pembaruan otomatis (opsional)
+## 4. Pembaruan tabel (manual)
 
-Jalankan penjadwal Laravel agar impor semua berjalan setiap malam pukul 02.00 WIB: `php artisan schedule:work`
-saat pengembangan, atau cron/Task Scheduler yang menjalankan `php artisan schedule:run` setiap menit di server.
+Data tabel dinamis **tidak diperbarui otomatis**: tidak ada jadwal malam untuk tabel, dan tabel dinamis baru
+tidak otomatis dibuatkan indikator saat halaman dibuka. Untuk memperbarui, klik lagi **Impor Semua Tabel
+Dinamis**. Penjadwal Laravel hanya dipakai untuk publikasi (lihat bagian 6).
 
-Bila ingin data juga diambil ulang saat indikator dibuka (mis. setiap 6 jam), isi di `.env`:
-`BPS_SEGAR_MENIT=360` (bawaan `0` = hanya lewat impor/penjadwal).
+Opsi `.env` bila suatu saat ingin otomatis lagi (bawaan keduanya mati):
+
+- `BPS_KATALOG_OTOMATIS=true`: tabel dinamis baru dibuatkan indikator saat Admin/PJ membuka dashboard.
+- `BPS_SEGAR_MENIT=360`: data yang lebih tua dari 6 jam diambil ulang saat indikator dibuka (bawaan `0`).
 
 ## 5. Bila ada masalah
 
@@ -120,6 +124,8 @@ aktif. Link hanya diterima bila `https://` dan berasal dari `*.bps.go.id`.
   tersimpan di folder dari unggahan lama tetapi belum dilatih).
 - **Otomatis setiap malam (03.00 WIB)** bila penjadwal Laravel berjalan, memakai pengaturan
   `BPS_PUBLIKASI_SEJAK` (tahun rilis paling awal; kosong = tahun lalu) dan `BPS_PUBLIKASI_KATA` di `.env`.
+  Jalankan penjadwalnya dengan `php artisan schedule:work` saat pengembangan, atau cron/Task Scheduler yang
+  menjalankan `php artisan schedule:run` setiap menit di server.
 - **Dari terminal** (cocok untuk PDF besar atau banyak sekaligus, tanpa batas waktu halaman):
 
   ```bash

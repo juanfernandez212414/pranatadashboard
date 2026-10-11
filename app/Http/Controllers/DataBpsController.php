@@ -17,8 +17,8 @@ use Illuminate\Support\Facades\Auth;
  * Menu "Data API BPS": mengambil tabel dinamis dan publikasi dari WebAPI BPS.
  * - Tabel dinamis dipilih seperti di halaman Tabel Dinamis situs BPS, lalu disimpan sebagai indikator
  *   di Kelola Data, sehingga Lihat Data, ekspor, dashboard, dan narasi AI langsung bisa memakainya.
- * - Semua tabel dinamis otomatis menjadi indikator dan datanya diambil dari API saat dibuka
- *   (SinkronisasiBps); halaman ini menampilkan ringkasannya dan tombol untuk mengecek tabel baru sekarang.
+ * - Semua tabel dinamis dibuatkan indikator beserta datanya lewat tombol "Impor Semua Tabel Dinamis"
+ *   (SinkronisasiBps); tidak otomatis saat halaman dibuka kecuali services.bps.katalog_otomatis diaktifkan.
  * - PDF publikasi diunduh dari API ke folder basis pengetahuan lalu langsung dilatihkan (ingest) ke layanan
  *   AI, per publikasi atau semua publikasi baru sekaligus (PublikasiBps), tanpa unggah manual.
  */
@@ -103,9 +103,9 @@ class DataBpsController extends Controller
     }
 
     /**
-     * Ringkasan indikator tabel dinamis API. Cek tabel baru dan daftar indikator lama bernama sama hanya
-     * dihitung di tab Tabel Dinamis saat katalog berhasil dimuat (katalognya sudah ada di cache), agar tab
-     * Publikasi atau API yang bermasalah tidak membuat halaman lambat.
+     * Ringkasan indikator tabel dinamis API. Cek tabel baru (hanya bila services.bps.katalog_otomatis aktif)
+     * dan daftar indikator lama bernama sama hanya dihitung di tab Tabel Dinamis saat katalog berhasil dimuat
+     * (katalognya sudah ada di cache), agar tab Publikasi atau API yang bermasalah tidak membuat halaman lambat.
      */
     private function ringkasanOtomatis(bool $pakaiKatalog): array
     {
@@ -343,15 +343,15 @@ class DataBpsController extends Controller
             'tahun.max' => 'Paling banyak ' . self::MAKS_TAHUN . ' tahun per indikator.',
         ]);
 
-        // Tabel dinamis lengkap sudah otomatis menjadi indikator (seluruh tahun, diperbarui dari API). Tab ini
-        // untuk menyimpan potongan tabel sebagai indikator tersendiri, jadi indikator otomatis itu tidak ditimpa
+        // Tabel dinamis lengkap sudah menjadi indikator lewat Impor Semua (seluruh tahun). Tab ini untuk
+        // menyimpan potongan tabel sebagai indikator tersendiri, jadi indikator tabel lengkap itu tidak ditimpa
         // dan tidak digandakan.
         $target = !empty($data['indicator_id']) ? Indicator::findOrFail($data['indicator_id']) : null;
         if ($target && $target->bps_source === SinkronisasiBps::SUMBER && empty($target->bps_options)) {
-            return back()->withInput()->with('error', "Indikator \"{$target->name}\" berisi tabel dinamis lengkap yang datanya otomatis dari WebAPI BPS, jadi tidak ditimpa. Simpan pilihan ini sebagai indikator baru.");
+            return back()->withInput()->with('error', "Indikator \"{$target->name}\" berisi tabel dinamis lengkap yang datanya dari WebAPI BPS, jadi tidak ditimpa. Simpan pilihan ini sebagai indikator baru.");
         }
         if (!$target && !self::saringan($data) && ($cermin = SinkronisasiBps::indikatorCermin((string) $data['var']))) {
-            return back()->withInput()->with('error', "Tabel ini sudah otomatis menjadi indikator \"{$cermin->name}\" dengan data seluruh tahun. Pilih judul baris atau karakteristik tertentu bila ingin menyimpan potongan tabel.");
+            return back()->withInput()->with('error', "Tabel ini sudah menjadi indikator \"{$cermin->name}\" dengan data seluruh tahun. Pilih judul baris atau karakteristik tertentu bila ingin menyimpan potongan tabel.");
         }
 
         set_time_limit(120);

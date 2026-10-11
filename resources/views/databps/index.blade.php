@@ -39,6 +39,7 @@
                         {{ number_format($otomatis['berisiData'], 0, ',', '.') }} di antaranya sudah berisi data.
                         "Impor Semua Tabel Dinamis" mengambil semua tabel dinamis beserta data seluruh tahunnya dan menyimpannya ke
                         database, sehingga Dashboard, Lihat Data, ekspor, dan narasi AI langsung memakainya tanpa menunggu API.
+                        Data tabel tidak diperbarui otomatis; klik tombol ini lagi bila ingin memperbaruinya.
                     </p>
                     @if ($otomatis['terakhir'])
                         <p class="text-xs text-gray-500">Data terakhir diambil dari API: {{ \Illuminate\Support\Carbon::parse($otomatis['terakhir'])->timezone('Asia/Jakarta')->format('d-m-Y H:i') }} WIB</p>

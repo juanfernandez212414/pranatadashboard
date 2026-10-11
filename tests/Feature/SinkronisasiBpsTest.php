@@ -1,7 +1,8 @@
 <?php
 
-// Uji tabel dinamis WebAPI BPS sebagai sumber data otomatis dashboard (SinkronisasiBps, bps:sinkron, bps:cek):
-// semua tabel dinamis menjadi indikator tanpa impor manual, dan datanya diambil dari API saat dibuka.
+// Uji tabel dinamis WebAPI BPS sebagai sumber data dashboard (SinkronisasiBps, bps:sinkron, bps:cek).
+// Bawaan aplikasi: tabel dinamis hanya masuk lewat tombol "Impor Semua Tabel Dinamis" (BPS_KATALOG_OTOMATIS
+// mati). Sebagian besar tes di sini menyalakan katalog otomatis (beforeEach) untuk menguji mode tersebut.
 //
 // AMAN dijalankan kapan saja: tidak ada permintaan sungguhan ke WebAPI BPS (semua dibalas fixture lewat
 // palsukanBps di tests/BantuanBps.php) dan database memakai SQLite di memori (phpunit.xml).
@@ -40,7 +41,7 @@ beforeEach(function () {
     $this->artisan('migrate');
 
     Http::preventStrayRequests();
-    config(['services.bps.key' => 'kunci-uji-rahasia-123', 'services.bps.domain' => '1273']);
+    config(['services.bps.key' => 'kunci-uji-rahasia-123', 'services.bps.domain' => '1273', 'services.bps.katalog_otomatis' => true]);
     $this->withoutVite();
 
     $buat = fn (int $role, string $nama) => User::create([
@@ -88,6 +89,24 @@ it('tidak membuat Pengguna menunggu daftar tabel dari API saat membuka dashboard
     $this->actingAs($this->biasa)->get('/pengguna/dashboard')->assertOk();
 
     Http::assertNothingSent();
+});
+
+it('tidak membuat indikator saat dashboard atau Data API BPS dibuka bila katalog otomatis mati (bawaan)', function () {
+    palsukanBps();
+    config(['services.bps.katalog_otomatis' => false]);
+
+    $this->actingAs($this->admin)->get('/admin/dashboard')->assertOk();
+    Http::assertNothingSent();
+
+    $this->actingAs($this->admin)->get('/admin/data-bps')->assertOk()
+        ->assertSee('0 indikator tertaut ke tabel dinamis WebAPI BPS');
+    expect(Indicator::count())->toBe(0);
+
+    // Indikator baru dibuat ketika petugas menekan "Impor Semua Tabel Dinamis".
+    $this->actingAs($this->pj)->postJson('/penanggungjawab/data-bps/impor-semua')
+        ->assertOk()
+        ->assertJsonPath('katalog.baru', 4);
+    expect(Indicator::count())->toBe(4);
 });
 
 it('membaca katalog lebih dari 20 halaman (ratusan tabel dinamis)', function () {
@@ -191,7 +210,7 @@ it('hanya menyimpan nama, subjek, dan satuan saat indikator API diedit di Kelola
     $this->actingAs($this->pj)->patch("/penanggungjawab/indicators/{$penduduk->id}", [
         'subject_id' => $penduduk->subject_id, 'name' => 'Jumlah Penduduk Kecamatan', 'unit' => 'Orang',
         'matrix_data' => json_encode(['headers' => [['value' => 'Manual']], 'rows' => [[['value' => '1']]]]),
-    ])->assertSessionHas('success', 'Indikator berhasil diupdate. Data tabelnya tetap diambil otomatis dari WebAPI BPS.');
+    ])->assertSessionHas('success', 'Indikator berhasil diupdate. Data tabelnya tetap diambil dari WebAPI BPS.');
 
     $penduduk->refresh();
     expect([$penduduk->name, $penduduk->unit, $penduduk->data, $penduduk->bps_table_id])

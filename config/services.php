@@ -54,6 +54,9 @@ return [
         'cache_menit' => (int) env('BPS_CACHE_MENIT', 360),       // lama respons API disimpan di cache
         'segar_menit' => (int) env('BPS_SEGAR_MENIT', 0),         // >0: data yang lebih tua dari ini diambil ulang saat dibuka (0 = hanya lewat impor)
         'katalog_menit' => (int) env('BPS_KATALOG_MENIT', 1440),  // daftar tabel dinamis dicek ulang (tabel baru) paling sering tiap ...
+        // true: tabel dinamis baru otomatis dibuatkan indikator saat Admin/PJ membuka dashboard atau Data API BPS.
+        // Bawaan false: tabel dinamis hanya masuk lewat tombol "Impor Semua Tabel Dinamis" (tidak otomatis).
+        'katalog_otomatis' => (bool) env('BPS_KATALOG_OTOMATIS', false),
         // Publikasi yang otomatis diunduh & dilatihkan ke basis pengetahuan AI: rilis sejak tahun ini
         // (kosong = tahun lalu) dan, bila diisi, judulnya memuat salah satu kata kunci (pisahkan koma).
         'publikasi_sejak' => env('BPS_PUBLIKASI_SEJAK'),

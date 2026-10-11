@@ -452,7 +452,7 @@
                                                     {{ $indicator->name }}
                                                     @if ($indicator->bps_source)
                                                         <span class="ml-1 inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
-                                                            title="Data diambil otomatis dari tabel dinamis WebAPI BPS saat dibuka. Isian tabel tidak bisa diedit manual.">API BPS</span>
+                                                            title="Data diambil dari tabel dinamis WebAPI BPS lewat Impor Semua Tabel Dinamis. Isian tabel tidak bisa diedit manual.">API BPS</span>
                                                     @endif
                                                 </td>
                                                 <td class="p-4 text-sm text-gray-500 whitespace-nowrap">
@@ -882,7 +882,7 @@
                         <input type="hidden" name="matrix_data" :value="JSON.stringify(editingIndicator.tableData)">
                         <div x-show="editingIndicator.bps_source" x-cloak
                             class="bg-blue-50 border border-blue-200 text-blue-800 rounded-xl p-4 text-sm">
-                            Data tabel indikator ini diambil otomatis dari tabel dinamis WebAPI BPS, jadi tidak bisa diedit di sini.
+                            Data tabel indikator ini diambil dari tabel dinamis WebAPI BPS (diperbarui lewat Impor Semua Tabel Dinamis di menu Data API BPS), jadi tidak bisa diedit di sini.
                             Yang disimpan hanya kategori, subjek, nama, dan satuan.
                         </div>
                         <div x-show="!editingIndicator.bps_source" class="bg-white rounded-xl p-4 md:p-5 shadow-sm border border-gray-200">
